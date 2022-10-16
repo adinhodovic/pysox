@@ -1,11 +1,12 @@
-from pathlib import Path
 import os
 import unittest
+from pathlib import Path
 
-from sox import transform, file_info
-from sox.core import SoxError
-import soundfile as sf
 import numpy as np
+import soundfile as sf
+
+from sox import file_info, transform
+from sox.core import SoxError
 
 
 def relpath(f):
@@ -427,6 +428,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -449,6 +451,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -477,6 +480,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -499,6 +503,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -533,6 +538,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': 32,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -567,6 +573,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': 2,
             'encoding': None,
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -601,6 +608,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': 'signed-integer',
+            'bitrate': None,
             'comments': None,
             'append_comments': True
         }
@@ -620,6 +628,35 @@ class TestTransformSetOutputFormat(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.tfm._output_format_args({'encoding': '16-bit-signed-integer'})
 
+    def test_bitrate(self):
+        self.tfm.set_output_format(bitrate=320.0)
+        actual = self.tfm.output_format
+        expected = {
+            'file_type': None,
+            'rate': None,
+            'bits': None,
+            'channels': None,
+            'encoding': None,
+            'bitrate': 320.0,
+            'comments': None,
+            'append_comments': True
+        }
+        self.assertEqual(expected, actual)
+
+        actual_args = self.tfm._output_format_args(self.tfm.output_format)
+        expected_args = ['-C', '320.0']
+        self.assertEqual(expected_args, actual_args)
+
+        actual_result = self.tfm.build(INPUT_FILE, OUTPUT_FILE)
+        expected_result = True
+        self.assertEqual(expected_result, actual_result)
+
+    def test_bitrate_invalid(self):
+        with self.assertRaises(ValueError):
+            self.tfm.set_output_format(bitrate='320.0')
+        with self.assertRaises(ValueError):
+            self.tfm._output_format_args({'bitrate': 320})
+
     def test_comments(self):
         self.tfm.set_output_format(comments='asdf')
         actual = self.tfm.output_format
@@ -629,6 +666,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': 'asdf',
             'append_comments': True
         }
@@ -657,6 +695,7 @@ class TestTransformSetOutputFormat(unittest.TestCase):
             'bits': None,
             'channels': None,
             'encoding': None,
+            'bitrate': None,
             'comments': 'asdf',
             'append_comments': False
         }

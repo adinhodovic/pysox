@@ -1,43 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
+"""
 Python wrapper around the SoX library.
 This module requires that SoX is installed.
-'''
+"""
 
 from __future__ import print_function
 
 import os
 import random
-from pathlib import Path
-from typing import List, Optional, Dict, Union, Tuple
 
 import numpy as np
-from typing_extensions import Literal
 
 from . import file_info
-from .core import ENCODING_VALS, EncodingValue
-from .core import SoxError
-from .core import VALID_FORMATS
-from .core import is_number
-from .core import play
-from .core import sox
+from .core import ENCODING_VALS, VALID_FORMATS, SoxError, is_number, play, sox
 from .log import logger
 
 VERBOSITY_VALS = [0, 1, 2, 3, 4]
 
 ENCODINGS_MAPPING = {
-    np.int16: 's16',
-    np.int8: 's8',
-    np.float32: 'f32',
-    np.float64: 'f64',
+    np.int16: "s16",
+    np.int8: "s8",
+    np.float32: "f32",
+    np.float64: "f64",
 }
 
-GainType = Literal['amplitude', 'power', 'db']
 
-
-class Transformer:
-    '''Audio file transformer.
+class Transformer(object):
+    """Audio file transformer.
     Class which allows multiple effects to be chained to create an output
     file, saved to output_filepath.
 
@@ -54,10 +44,10 @@ class Transformer:
     build_array
         Execute the current chain of commands to create an output array.
 
-    '''
+    """
 
     def __init__(self):
-        '''
+        """
         Attributes
         ----------
         input_format : list of str
@@ -71,22 +61,25 @@ class Transformer:
         globals : list of str
             Global arguments that will be passed to SoX.
 
-        '''
-        self.input_format = {}  # type: Dict
-        self.output_format = {}  # type : Dict
+        """
+        self.input_format = {}
+        self.output_format = {}
 
-        self.effects = []  # type: List[str]
-        self.effects_log = []  # type: List[str]
+        self.effects = []
+        self.effects_log = []
 
-        self.globals = []  # type: List[str]
+        self.globals = []
         self.set_globals()
 
-    def set_globals(self, dither: bool = False,
-                    guard: bool = False,
-                    multithread: bool = False,
-                    replay_gain: bool = False,
-                    verbosity: int = 2):
-        '''Sets SoX's global arguments.
+    def set_globals(
+        self,
+        dither=False,
+        guard=False,
+        multithread=False,
+        replay_gain=False,
+        verbosity=2,
+    ):
+        """Sets SoX's global arguments.
         Overwrites any previously set global arguments.
         If this function is not explicity called, globals are set to this
         function's defaults.
@@ -114,129 +107,127 @@ class Transformer:
                     Useful for seeing exactly how SoX is processing your audio.
                 * 4, >4 : Messages to help with debugging SoX are also shown.
 
-        '''
+        """
         if not isinstance(dither, bool):
-            raise ValueError('dither must be a boolean.')
+            raise ValueError("dither must be a boolean.")
 
         if not isinstance(guard, bool):
-            raise ValueError('guard must be a boolean.')
+            raise ValueError("guard must be a boolean.")
 
         if not isinstance(multithread, bool):
-            raise ValueError('multithread must be a boolean.')
+            raise ValueError("multithread must be a boolean.")
 
         if not isinstance(replay_gain, bool):
-            raise ValueError('replay_gain must be a boolean.')
+            raise ValueError("replay_gain must be a boolean.")
 
         if verbosity not in VERBOSITY_VALS:
             raise ValueError(
-                'Invalid value for VERBOSITY. Must be one {}'.format(
-                    VERBOSITY_VALS)
+                "Invalid value for VERBOSITY. Must be one {}".format(VERBOSITY_VALS)
             )
 
         global_args = []
 
         if not dither:
-            global_args.append('-D')
+            global_args.append("-D")
 
         if guard:
-            global_args.append('-G')
+            global_args.append("-G")
 
         if multithread:
-            global_args.append('--multi-threaded')
+            global_args.append("--multi-threaded")
 
         if replay_gain:
-            global_args.append('--replay-gain')
-            global_args.append('track')
+            global_args.append("--replay-gain")
+            global_args.append("track")
 
-        global_args.append('-V{}'.format(verbosity))
+        global_args.append("-V{}".format(verbosity))
 
         self.globals = global_args
         return self
 
     def _validate_input_format(self, input_format):
-        '''Private helper function for validating input formats
-        '''
-        file_type = input_format.get('file_type')
-        rate = input_format.get('rate')
-        bits = input_format.get('bits')
-        channels = input_format.get('channels')
-        encoding = input_format.get('encoding')
-        ignore_length = input_format.get('ignore_length', False)
+        """Private helper function for validating input formats"""
+        file_type = input_format.get("file_type")
+        rate = input_format.get("rate")
+        bits = input_format.get("bits")
+        channels = input_format.get("channels")
+        encoding = input_format.get("encoding")
+        ignore_length = input_format.get("ignore_length", False)
 
         if file_type not in VALID_FORMATS + [None]:
             raise ValueError(
-                'Invalid file_type. Must be one of {}'.format(VALID_FORMATS)
+                "Invalid file_type. Must be one of {}".format(VALID_FORMATS)
             )
 
         if not is_number(rate) and rate is not None:
-            raise ValueError('rate must be a float or None')
+            raise ValueError("rate must be a float or None")
 
         if rate is not None and rate <= 0:
-            raise ValueError('rate must be a positive number')
+            raise ValueError("rate must be a positive number")
 
         if not isinstance(bits, int) and bits is not None:
-            raise ValueError('bits must be an int or None')
+            raise ValueError("bits must be an int or None")
 
         if bits is not None and bits <= 0:
-            raise ValueError('bits must be a positive number')
+            raise ValueError("bits must be a positive number")
 
         if not isinstance(channels, int) and channels is not None:
-            raise ValueError('channels must be an int or None')
+            raise ValueError("channels must be an int or None")
 
         if channels is not None and channels <= 0:
-            raise ValueError('channels must be a positive number')
+            raise ValueError("channels must be a positive number")
 
         if encoding not in ENCODING_VALS + [None]:
             raise ValueError(
-                'Invalid encoding {}. Must be one of {}'.format(
-                    encoding, ENCODING_VALS)
+                "Invalid encoding {}. Must be one of {}".format(encoding, ENCODING_VALS)
             )
 
         if not isinstance(ignore_length, bool):
-            raise ValueError('ignore_length must be a boolean')
+            raise ValueError("ignore_length must be a boolean")
 
     def _input_format_args(self, input_format):
-        '''Private helper function for set_input_format
-        '''
+        """Private helper function for set_input_format"""
         self._validate_input_format(input_format)
 
-        file_type = input_format.get('file_type')
-        rate = input_format.get('rate')
-        bits = input_format.get('bits')
-        channels = input_format.get('channels')
-        encoding = input_format.get('encoding')
-        ignore_length = input_format.get('ignore_length', False)
+        file_type = input_format.get("file_type")
+        rate = input_format.get("rate")
+        bits = input_format.get("bits")
+        channels = input_format.get("channels")
+        encoding = input_format.get("encoding")
+        ignore_length = input_format.get("ignore_length", False)
 
         input_format_args = []
 
         if file_type is not None:
-            input_format_args.extend(['-t', '{}'.format(file_type)])
+            input_format_args.extend(["-t", "{}".format(file_type)])
 
         if rate is not None:
-            input_format_args.extend(['-r', '{:f}'.format(rate)])
+            input_format_args.extend(["-r", "{:f}".format(rate)])
 
         if bits is not None:
-            input_format_args.extend(['-b', '{}'.format(bits)])
+            input_format_args.extend(["-b", "{}".format(bits)])
 
         if channels is not None:
-            input_format_args.extend(['-c', '{}'.format(channels)])
+            input_format_args.extend(["-c", "{}".format(channels)])
 
         if encoding is not None:
-            input_format_args.extend(['-e', '{}'.format(encoding)])
+            input_format_args.extend(["-e", "{}".format(encoding)])
 
         if ignore_length:
-            input_format_args.append('--ignore-length')
+            input_format_args.append("--ignore-length")
 
         return input_format_args
 
-    def set_input_format(self,
-                         file_type: Optional[str] = None,
-                         rate: Optional[float] = None,
-                         bits: Optional[int] = None,
-                         channels: Optional[int] = None,
-                         encoding: Optional[EncodingValue] = None,
-                         ignore_length: bool = False):
-        '''Sets input file format arguments. This is primarily useful when
+    def set_input_format(
+        self,
+        file_type=None,
+        rate=None,
+        bits=None,
+        channels=None,
+        encoding=None,
+        ignore_length=False,
+    ):
+        """Sets input file format arguments. This is primarily useful when
         dealing with audio files without a file extension. Overwrites any
         previously set input file arguments.
 
@@ -297,110 +288,119 @@ class Transformer:
             If True, overrides an (incorrect) audio length given in an audio
             file’s header. If this option is given then SoX will keep reading
             audio until it reaches the end of the input file.
-        '''
+        """
         input_format = {
-            'file_type': file_type,
-            'rate': rate,
-            'bits': bits,
-            'channels': channels,
-            'encoding': encoding,
-            'ignore_length': ignore_length
+            "file_type": file_type,
+            "rate": rate,
+            "bits": bits,
+            "channels": channels,
+            "encoding": encoding,
+            "ignore_length": ignore_length,
         }
         self._validate_input_format(input_format)
         self.input_format = input_format
 
     def _validate_output_format(self, output_format):
-        '''Private helper function for validating input formats
-        '''
-        file_type = output_format.get('file_type')
-        rate = output_format.get('rate')
-        bits = output_format.get('bits')
-        channels = output_format.get('channels')
-        encoding = output_format.get('encoding')
-        comments = output_format.get('comments')
-        append_comments = output_format.get('append_comments', True)
+        """Private helper function for validating input formats"""
+        file_type = output_format.get("file_type")
+        rate = output_format.get("rate")
+        bits = output_format.get("bits")
+        channels = output_format.get("channels")
+        encoding = output_format.get("encoding")
+        bitrate = output_format.get("bitrate")
+        comments = output_format.get("comments")
+        append_comments = output_format.get("append_comments", True)
 
         if file_type not in VALID_FORMATS + [None]:
             raise ValueError(
-                'Invalid file_type. Must be one of {}'.format(VALID_FORMATS)
+                "Invalid file_type. Must be one of {}".format(VALID_FORMATS)
             )
 
         if not is_number(rate) and rate is not None:
-            raise ValueError('rate must be a float or None')
+            raise ValueError("rate must be a float or None")
 
         if rate is not None and rate <= 0:
-            raise ValueError('rate must be a positive number')
+            raise ValueError("rate must be a positive number")
 
         if not isinstance(bits, int) and bits is not None:
-            raise ValueError('bits must be an int or None')
+            raise ValueError("bits must be an int or None")
 
         if bits is not None and bits <= 0:
-            raise ValueError('bits must be a positive number')
+            raise ValueError("bits must be a positive number")
 
         if not isinstance(channels, int) and channels is not None:
-            raise ValueError('channels must be an int or None')
+            raise ValueError("channels must be an int or None")
 
         if channels is not None and channels <= 0:
-            raise ValueError('channels must be a positive number')
+            raise ValueError("channels must be a positive number")
 
         if encoding not in ENCODING_VALS + [None]:
             raise ValueError(
-                'Invalid encoding. Must be one of {}'.format(ENCODING_VALS)
+                "Invalid encoding. Must be one of {}".format(ENCODING_VALS)
             )
 
+        if not isinstance(bitrate, float) and bitrate is not None:
+            raise ValueError("bitrate must be an float or None")
+
         if comments is not None and not isinstance(comments, str):
-            raise ValueError('comments must be a string or None')
+            raise ValueError("comments must be a string or None")
 
         if not isinstance(append_comments, bool):
-            raise ValueError('append_comments must be a boolean')
+            raise ValueError("append_comments must be a boolean")
 
     def _output_format_args(self, output_format):
-        '''Private helper function for set_output_format
-        '''
+        """Private helper function for set_output_format"""
         self._validate_output_format(output_format)
 
-        file_type = output_format.get('file_type')
-        rate = output_format.get('rate')
-        bits = output_format.get('bits')
-        channels = output_format.get('channels')
-        encoding = output_format.get('encoding')
-        comments = output_format.get('comments')
-        append_comments = output_format.get('append_comments', True)
+        file_type = output_format.get("file_type")
+        rate = output_format.get("rate")
+        bits = output_format.get("bits")
+        channels = output_format.get("channels")
+        encoding = output_format.get("encoding")
+        bitrate = output_format.get("bitrate")
+        comments = output_format.get("comments")
+        append_comments = output_format.get("append_comments", True)
 
         output_format_args = []
 
         if file_type is not None:
-            output_format_args.extend(['-t', '{}'.format(file_type)])
+            output_format_args.extend(["-t", "{}".format(file_type)])
 
         if rate is not None:
-            output_format_args.extend(['-r', '{:f}'.format(rate)])
+            output_format_args.extend(["-r", "{:f}".format(rate)])
 
         if bits is not None:
-            output_format_args.extend(['-b', '{}'.format(bits)])
+            output_format_args.extend(["-b", "{}".format(bits)])
 
         if channels is not None:
-            output_format_args.extend(['-c', '{}'.format(channels)])
+            output_format_args.extend(["-c", "{}".format(channels)])
 
         if encoding is not None:
-            output_format_args.extend(['-e', '{}'.format(encoding)])
+            output_format_args.extend(["-e", "{}".format(encoding)])
+
+        if bitrate is not None:
+            output_format_args.extend(["-C", "{}".format(bitrate)])
 
         if comments is not None:
             if append_comments:
-                output_format_args.extend(['--add-comment', comments])
+                output_format_args.extend(["--add-comment", comments])
             else:
-                output_format_args.extend(['--comment', comments])
+                output_format_args.extend(["--comment", comments])
 
         return output_format_args
 
-    def set_output_format(self,
-                          file_type: Optional[str] = None,
-                          rate: Optional[float] = None,
-                          bits: Optional[int] = None,
-                          channels: Optional[int] = None,
-                          encoding: Optional[EncodingValue] = None,
-                          comments: Optional[str] = None,
-                          append_comments: bool = True):
-        '''Sets output file format arguments. These arguments will overwrite
+    def set_output_format(
+        self,
+        file_type=None,
+        rate=None,
+        bits=None,
+        channels=None,
+        encoding=None,
+        bitrate=None,
+        comments=None,
+        append_comments=True,
+    ):
+        """Sets output file format arguments. These arguments will overwrite
         any format related arguments supplied by other effects (e.g. rate).
 
         If this function is not explicity called the output format is inferred
@@ -462,28 +462,28 @@ class Transformer:
         append_comments : bool, default=True
             If True, comment strings are appended to SoX's default comments. If
             False, the supplied comment replaces the existing comment.
-        '''
+        """
         output_format = {
-            'file_type': file_type,
-            'rate': rate,
-            'bits': bits,
-            'channels': channels,
-            'encoding': encoding,
-            'comments': comments,
-            'append_comments': append_comments
+            "file_type": file_type,
+            "rate": rate,
+            "bits": bits,
+            "channels": channels,
+            "encoding": encoding,
+            "bitrate": bitrate,
+            "comments": comments,
+            "append_comments": append_comments,
         }
         self._validate_output_format(output_format)
         self.output_format = output_format
 
     def clear_effects(self):
-        '''Remove all effects processes.
-        '''
+        """Remove all effects processes."""
         self.effects = list()
         self.effects_log = list()
         return self
 
     def _parse_inputs(self, input_filepath, input_array, sample_rate_in):
-        '''Private helper function for parsing inputs to build and build_array
+        """Private helper function for parsing inputs to build and build_array
 
         Parameters
         ----------
@@ -501,7 +501,7 @@ class Transformer:
             Input format dictionary
         input_filepath : str
             Formatted input filepath.
-        '''
+        """
         if input_filepath is not None and input_array is not None:
             raise ValueError(
                 "Only one of input_filepath and input_array may be specified"
@@ -510,40 +510,38 @@ class Transformer:
         if input_filepath is not None:
             file_info.validate_input_file(input_filepath)
             input_format = self.input_format
-            if input_format.get('channels') is None:
-                input_format['channels'] = file_info.channels(input_filepath)
+            if input_format.get("channels") is None:
+                input_format["channels"] = file_info.channels(input_filepath)
         elif input_array is not None:
             if not isinstance(input_array, np.ndarray):
                 raise TypeError("input_array must be a numpy array or None")
             if sample_rate_in is None:
-                raise ValueError(
-                    "sample_rate_in must be specified for array inputs"
-                )
-            input_filepath = '-'
+                raise ValueError("sample_rate_in must be specified for array inputs")
+            input_filepath = "-"
             input_format = {
-                'file_type': ENCODINGS_MAPPING[input_array.dtype.type],
-                'rate': sample_rate_in,
-                'bits': None,
-                'channels': (
+                "file_type": ENCODINGS_MAPPING[input_array.dtype.type],
+                "rate": sample_rate_in,
+                "bits": None,
+                "channels": (
                     input_array.shape[-1] if len(input_array.shape) > 1 else 1
                 ),
-                'encoding': None,
-                'ignore_length': False
+                "encoding": None,
+                "ignore_length": False,
             }
         else:
-            raise ValueError(
-                "One of input_filepath or input_array must be specified"
-            )
+            raise ValueError("One of input_filepath or input_array must be specified")
         return input_format, input_filepath
 
-    def build(self,
-              input_filepath: Optional[Union[str, Path]] = None,
-              output_filepath: Optional[Union[str, Path]] = None,
-              input_array: Optional[str] = None,
-              sample_rate_in: Optional[float] = None,
-              extra_args: Optional[List[str]] = None,
-              return_output: bool = False):
-        '''Given an input file or array, creates an output_file on disk by
+    def build(
+        self,
+        input_filepath=None,
+        output_filepath=None,
+        input_array=None,
+        sample_rate_in=None,
+        extra_args=None,
+        return_output=False,
+    ):
+        """Given an input file or array, creates an output_file on disk by
         executing the current set of commands. This function returns True on
         success. If return_output is True, this function returns a triple of
         (status, out, err), giving the success state, along with stdout and
@@ -611,7 +609,7 @@ class Transformer:
                 output_filepath='path/to/output.mp3'
             )
 
-        '''
+        """
         input_format, input_filepath = self._parse_inputs(
             input_filepath, input_array, sample_rate_in
         )
@@ -621,9 +619,7 @@ class Transformer:
 
         # set output parameters
         if input_filepath == output_filepath:
-            raise ValueError(
-                "input_filepath must be different from output_filepath."
-            )
+            raise ValueError("input_filepath must be different from output_filepath.")
         file_info.validate_output_file(output_filepath)
 
         args = []
@@ -641,14 +637,10 @@ class Transformer:
 
         status, out, err = sox(args, input_array, True)
         if status != 0:
-            raise SoxError(
-                "Stdout: {}\nStderr: {}".format(out, err)
-            )
+            raise SoxError("Stdout: {}\nStderr: {}".format(out, err))
 
         logger.info(
-            "Created %s with effects: %s",
-            output_filepath,
-            " ".join(self.effects_log)
+            "Created %s with effects: %s", output_filepath, " ".join(self.effects_log)
         )
 
         if return_output:
@@ -656,14 +648,16 @@ class Transformer:
 
         return True
 
-    def build_file(self,
-                   input_filepath: Optional[Union[str, Path]] = None,
-                   output_filepath: Optional[Union[str, Path]] = None,
-                   input_array: Optional[np.ndarray] = None,
-                   sample_rate_in: Optional[float] = None,
-                   extra_args: Optional[List[str]] = None,
-                   return_output: bool = False):
-        '''An alias for build.
+    def build_file(
+        self,
+        input_filepath=None,
+        output_filepath=None,
+        input_array=None,
+        sample_rate_in=None,
+        extra_args=None,
+        return_output=False,
+    ):
+        """An alias for build.
         Given an input file or array, creates an output_file on disk by
         executing the current set of commands. This function returns True on
         success. If return_output is True, this function returns a triple of
@@ -732,18 +726,24 @@ class Transformer:
                 output_filepath='path/to/output.mp3'
             )
 
-        '''
+        """
         return self.build(
-            input_filepath, output_filepath, input_array, sample_rate_in,
-            extra_args, return_output
+            input_filepath,
+            output_filepath,
+            input_array,
+            sample_rate_in,
+            extra_args,
+            return_output,
         )
 
-    def build_array(self,
-                    input_filepath: Optional[Union[str, Path]] = None,
-                    input_array: Optional[np.ndarray] = None,
-                    sample_rate_in: Optional[float] = None,
-                    extra_args: Optional[List[str]] = None):
-        '''Given an input file or array, returns the ouput as a numpy array
+    def build_array(
+        self,
+        input_filepath=None,
+        input_array=None,
+        sample_rate_in=None,
+        extra_args=None,
+    ):
+        """Given an input file or array, returns the ouput as a numpy array
         by executing the current set of commands. By default the array will
         have the same sample rate as the input file unless otherwise specified
         using set_output_format. Functions such as rate, channels and convert
@@ -800,51 +800,52 @@ class Transformer:
         >>> output_array = tfm.build(input_array=y, sample_rate_in=sample_rate)
 
 
-        '''
+        """
         input_format, input_filepath = self._parse_inputs(
             input_filepath, input_array, sample_rate_in
         )
 
         # check if any of the below commands are part of the effects chain
-        ignored_commands = ['rate', 'channels', 'convert']
+        ignored_commands = ["rate", "channels", "convert"]
         if set(ignored_commands) & set(self.effects_log):
             logger.warning(
-                "When outputting to an array, rate, channels and convert " +
-                "effects may be ignored. Use set_output_format() to " +
-                "specify output formats."
+                "When outputting to an array, rate, channels and convert "
+                + "effects may be ignored. Use set_output_format() to "
+                + "specify output formats."
             )
 
-        output_filepath = '-'
+        output_filepath = "-"
 
-        if input_format.get('file_type') is None:
+        if input_format.get("file_type") is None:
             encoding_out = np.int16
         else:
             encoding_out = [
-                k for k, v in ENCODINGS_MAPPING.items()
-                if input_format['file_type'] == v
+                k
+                for k, v in ENCODINGS_MAPPING.items()
+                if input_format["file_type"] == v
             ][0]
 
         n_bits = np.dtype(encoding_out).itemsize * 8
 
         output_format = {
-            'file_type': 'raw',
-            'rate': sample_rate_in,
-            'bits': n_bits,
-            'channels': input_format['channels'],
-            'encoding': None,
-            'comments': None,
-            'append_comments': True,
+            "file_type": "raw",
+            "rate": sample_rate_in,
+            "bits": n_bits,
+            "channels": input_format["channels"],
+            "encoding": None,
+            "comments": None,
+            "append_comments": True,
         }
 
-        if self.output_format.get('rate') is not None:
-            output_format['rate'] = self.output_format['rate']
+        if self.output_format.get("rate") is not None:
+            output_format["rate"] = self.output_format["rate"]
 
-        if self.output_format.get('channels') is not None:
-            output_format['channels'] = self.output_format['channels']
+        if self.output_format.get("channels") is not None:
+            output_format["channels"] = self.output_format["channels"]
 
-        if self.output_format.get('bits') is not None:
-            n_bits = self.output_format['bits']
-            output_format['bits'] = n_bits
+        if self.output_format.get("bits") is not None:
+            n_bits = self.output_format["bits"]
+            output_format["bits"] = n_bits
 
         if n_bits == 8:
             encoding_out = np.int8
@@ -872,34 +873,27 @@ class Transformer:
 
         status, out, err = sox(args, input_array, False)
         if status != 0:
-            raise SoxError(
-                "Stdout: {}\nStderr: {}".format(out, err)
-            )
+            raise SoxError("Stdout: {}\nStderr: {}".format(out, err))
 
         out = np.frombuffer(out, dtype=encoding_out)
-        if output_format['channels'] > 1:
+        if output_format["channels"] > 1:
             out = out.reshape(
-                (
-                    output_format['channels'],
-                    int(len(out) / output_format['channels'])
-                ), order='F'
+                (output_format["channels"], int(len(out) / output_format["channels"])),
+                order="F",
             ).T
-        logger.info(
-            "Created array with effects: %s",
-            " ".join(self.effects_log)
-        )
+        logger.info("Created array with effects: %s", " ".join(self.effects_log))
 
         return out
 
-    def preview(self, input_filepath: Union[str, Path]):
-        '''Play a preview of the output with the current set of effects
+    def preview(self, input_filepath):
+        """Play a preview of the output with the current set of effects
 
         Parameters
         ----------
         input_filepath : str
             Path to input audio file.
 
-        '''
+        """
         args = ["play", "--no-show-progress"]
         args.extend(self.globals)
         args.extend(self.input_format)
@@ -908,8 +902,8 @@ class Transformer:
 
         play(args)
 
-    def allpass(self, frequency: float, width_q: float = 2.0):
-        '''Apply a two-pole all-pass filter. An all-pass filter changes the
+    def allpass(self, frequency, width_q=2.0):
+        """Apply a two-pole all-pass filter. An all-pass filter changes the
         audio’s frequency to phase relationship without changing its frequency
         to amplitude relationship. The filter is described in detail in at
         http://musicdsp.org/files/Audio-EQ-Cookbook.txt
@@ -925,24 +919,21 @@ class Transformer:
         --------
         equalizer, highpass, lowpass, sinc
 
-        '''
+        """
         if not is_number(frequency) or frequency <= 0:
             raise ValueError("frequency must be a positive number.")
 
         if not is_number(width_q) or width_q <= 0:
             raise ValueError("width_q must be a positive number.")
 
-        effect_args = [
-            'allpass', '{:f}'.format(frequency), '{:f}q'.format(width_q)
-        ]
+        effect_args = ["allpass", "{:f}".format(frequency), "{:f}q".format(width_q)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('allpass')
+        self.effects_log.append("allpass")
         return self
 
-    def bandpass(self, frequency: float, width_q: float = 2.0,
-                 constant_skirt: bool = False):
-        '''Apply a two-pole Butterworth band-pass filter with the given central
+    def bandpass(self, frequency, width_q=2.0, constant_skirt=False):
+        """Apply a two-pole Butterworth band-pass filter with the given central
         frequency, and (3dB-point) band-width. The filter rolls off at 6dB per
         octave (20dB per decade) and is described in detail in
         http://musicdsp.org/files/Audio-EQ-Cookbook.txt
@@ -961,7 +952,7 @@ class Transformer:
         --------
         bandreject, sinc
 
-        '''
+        """
         if not is_number(frequency) or frequency <= 0:
             raise ValueError("frequency must be a positive number.")
 
@@ -971,20 +962,19 @@ class Transformer:
         if not isinstance(constant_skirt, bool):
             raise ValueError("constant_skirt must be a boolean.")
 
-        effect_args = ['bandpass']
+        effect_args = ["bandpass"]
 
         if constant_skirt:
-            effect_args.append('-c')
+            effect_args.append("-c")
 
-        effect_args.extend(['{:f}'.format(frequency), '{:f}q'.format(width_q)])
+        effect_args.extend(["{:f}".format(frequency), "{:f}q".format(width_q)])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('bandpass')
+        self.effects_log.append("bandpass")
         return self
 
-    def bandreject(self, frequency: float, width_q: float = 2.0,
-                   constant_skirt: bool = False):
-        '''Apply a two-pole Butterworth band-reject filter with the given
+    def bandreject(self, frequency, width_q=2.0):
+        """Apply a two-pole Butterworth band-reject filter with the given
         central frequency, and (3dB-point) band-width. The filter rolls off at
         6dB per octave (20dB per decade) and is described in detail in
         http://musicdsp.org/files/Audio-EQ-Cookbook.txt
@@ -1003,31 +993,21 @@ class Transformer:
         --------
         bandreject, sinc
 
-        '''
+        """
         if not is_number(frequency) or frequency <= 0:
             raise ValueError("frequency must be a positive number.")
 
         if not is_number(width_q) or width_q <= 0:
             raise ValueError("width_q must be a positive number.")
 
-        if not isinstance(constant_skirt, bool):
-            raise ValueError("constant_skirt must be a boolean.")
-
-        effect_args = ['bandreject']
-
-        if constant_skirt:
-            effect_args.append('-c')
-
-        effect_args.extend(['{:f}'.format(frequency), '{:f}q'.format(width_q)])
+        effect_args = ["bandreject", "{:f}".format(frequency), "{:f}q".format(width_q)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('bandreject')
+        self.effects_log.append("bandreject")
         return self
 
-    def bass(self, gain_db: float,
-             frequency: float = 100.0,
-             slope: float = 0.5):
-        '''Boost or cut the bass (lower) frequencies of the audio using a
+    def bass(self, gain_db, frequency=100.0, slope=0.5):
+        """Boost or cut the bass (lower) frequencies of the audio using a
         two-pole shelving filter with a response similar to that of a standard
         hi-fi’s tone-controls. This is also known as shelving equalisation.
 
@@ -1049,7 +1029,7 @@ class Transformer:
         --------
         treble, equalizer
 
-        '''
+        """
         if not is_number(gain_db):
             raise ValueError("gain_db must be a number")
 
@@ -1060,22 +1040,20 @@ class Transformer:
             raise ValueError("width_q must be a positive number.")
 
         effect_args = [
-            'bass', '{:f}'.format(gain_db), '{:f}'.format(frequency),
-            '{:f}s'.format(slope)
+            "bass",
+            "{:f}".format(gain_db),
+            "{:f}".format(frequency),
+            "{:f}s".format(slope),
         ]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('bass')
+        self.effects_log.append("bass")
         return self
 
-    def bend(self,
-             n_bends: int,
-             start_times: List[float],
-             end_times: List[float],
-             cents: List[float],
-             frame_rate: int = 25,
-             oversample_rate: int = 16):
-        '''Changes pitch by specified amounts at specified times.
+    def bend(
+        self, n_bends, start_times, end_times, cents, frame_rate=25, oversample_rate=16
+    ):
+        """Changes pitch by specified amounts at specified times.
         The pitch-bending algorithm utilises the Discrete Fourier Transform
         (DFT) at a particular frame rate and over-sampling rate.
 
@@ -1100,7 +1078,7 @@ class Transformer:
         --------
         pitch
 
-        '''
+        """
         if not isinstance(n_bends, int) or n_bends < 1:
             raise ValueError("n_bends must be a positive integer.")
 
@@ -1123,9 +1101,7 @@ class Transformer:
             raise ValueError("end_times must be in increasing order.")
 
         if any([e <= s for s, e in zip(start_times, end_times)]):
-            raise ValueError(
-                "end_times must be element-wise greater than start_times."
-            )
+            raise ValueError("end_times must be element-wise greater than start_times.")
 
         if any([e > s for s, e in zip(start_times[1:], end_times[:-1])]):
             raise ValueError(
@@ -1138,37 +1114,37 @@ class Transformer:
         if any([not is_number(p) for p in cents]):
             raise ValueError("elements of cents must be floats.")
 
-        if (not isinstance(frame_rate, int) or
-                frame_rate < 10 or frame_rate > 80):
+        if not isinstance(frame_rate, int) or frame_rate < 10 or frame_rate > 80:
             raise ValueError("frame_rate must be an integer between 10 and 80")
 
-        if (not isinstance(oversample_rate, int) or
-                oversample_rate < 4 or oversample_rate > 32):
-            raise ValueError(
-                "oversample_rate must be an integer between 4 and 32."
-            )
+        if (
+            not isinstance(oversample_rate, int)
+            or oversample_rate < 4
+            or oversample_rate > 32
+        ):
+            raise ValueError("oversample_rate must be an integer between 4 and 32.")
 
         effect_args = [
-            'bend',
-            '-f', '{}'.format(frame_rate),
-            '-o', '{}'.format(oversample_rate)
+            "bend",
+            "-f",
+            "{}".format(frame_rate),
+            "-o",
+            "{}".format(oversample_rate),
         ]
 
         last = 0
         for i in range(n_bends):
             t_start = round(start_times[i] - last, 2)
             t_end = round(end_times[i] - start_times[i], 2)
-            effect_args.append(
-                '{:f},{:f},{:f}'.format(t_start, cents[i], t_end)
-            )
+            effect_args.append("{:f},{:f},{:f}".format(t_start, cents[i], t_end))
             last = end_times[i]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('bend')
+        self.effects_log.append("bend")
         return self
 
-    def biquad(self, b: List[float], a: List[float]):
-        '''Apply a biquad IIR filter with the given coefficients.
+    def biquad(self, b, a):
+        """Apply a biquad IIR filter with the given coefficients.
 
         Parameters
         ----------
@@ -1181,37 +1157,41 @@ class Transformer:
         --------
         fir, treble, bass, equalizer
 
-        '''
+        """
         if not isinstance(b, list):
-            raise ValueError('b must be a list.')
+            raise ValueError("b must be a list.")
 
         if not isinstance(a, list):
-            raise ValueError('a must be a list.')
+            raise ValueError("a must be a list.")
 
         if len(b) != 3:
-            raise ValueError('b must be a length 3 list.')
+            raise ValueError("b must be a length 3 list.")
 
         if len(a) != 3:
-            raise ValueError('a must be a length 3 list.')
+            raise ValueError("a must be a length 3 list.")
 
         if not all([is_number(b_val) for b_val in b]):
-            raise ValueError('all elements of b must be numbers.')
+            raise ValueError("all elements of b must be numbers.")
 
         if not all([is_number(a_val) for a_val in a]):
-            raise ValueError('all elements of a must be numbers.')
+            raise ValueError("all elements of a must be numbers.")
 
         effect_args = [
-            'biquad', '{:f}'.format(b[0]), '{:f}'.format(b[1]),
-            '{:f}'.format(b[2]), '{:f}'.format(a[0]),
-            '{:f}'.format(a[1]), '{:f}'.format(a[2])
+            "biquad",
+            "{:f}".format(b[0]),
+            "{:f}".format(b[1]),
+            "{:f}".format(b[2]),
+            "{:f}".format(a[0]),
+            "{:f}".format(a[1]),
+            "{:f}".format(a[2]),
         ]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('biquad')
+        self.effects_log.append("biquad")
         return self
 
-    def channels(self, n_channels: int):
-        '''Change the number of channels in the audio signal. If decreasing the
+    def channels(self, n_channels):
+        """Change the number of channels in the audio signal. If decreasing the
         number of channels it mixes channels together, if increasing the number
         of channels it duplicates.
 
@@ -1226,25 +1206,28 @@ class Transformer:
         --------
         convert
 
-        '''
+        """
         if not isinstance(n_channels, int) or n_channels <= 0:
-            raise ValueError('n_channels must be a positive integer.')
+            raise ValueError("n_channels must be a positive integer.")
 
-        effect_args = ['channels', '{}'.format(n_channels)]
+        effect_args = ["channels", "{}".format(n_channels)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('channels')
+        self.effects_log.append("channels")
         return self
 
-    def chorus(self,
-               gain_in: float = 0.5, gain_out: float = 0.9,
-               n_voices: int = 3,
-               delays: Optional[List[float]] = None,
-               decays: Optional[List[float]] = None,
-               speeds: Optional[List[float]] = None,
-               depths: Optional[List[float]] = None,
-               shapes: Optional[List[Literal['s', 't']]] = None):
-        '''Add a chorus effect to the audio. This can makeasingle vocal sound
+    def chorus(
+        self,
+        gain_in=0.5,
+        gain_out=0.9,
+        n_voices=3,
+        delays=None,
+        decays=None,
+        speeds=None,
+        depths=None,
+        shapes=None,
+    ):
+        """Add a chorus effect to the audio. This can makeasingle vocal sound
         like a chorus, but can also be applied to instrumentation.
 
         Chorus resembles an echo effect with a short delay, but whereas with
@@ -1282,12 +1265,12 @@ class Transformer:
             If a list, the list of depths (in miliseconds) of length n_voices.
             If None, the individual delay parameters are chosen automatically
             to be between 1 and 3 miliseconds.
-        shapes : list of 's' or 't' or None, default=None
+        shapes : list of 's' or 't' or None, deault=None
             If a list, the list of modulation shapes - 's' for sinusoidal or
             't' for triangular - of length n_voices.
             If None, the individual shapes are chosen automatically.
 
-        '''
+        """
         if not is_number(gain_in) or gain_in <= 0 or gain_in > 1:
             raise ValueError("gain_in must be a number between 0 and 1.")
         if not is_number(gain_out) or gain_out <= 0 or gain_out > 1:
@@ -1313,9 +1296,7 @@ class Transformer:
             if len(decays) != n_voices:
                 raise ValueError("the length of decays must equal n_voices")
             if any((not is_number(p) or p <= 0 or p > 1) for p in decays):
-                raise ValueError(
-                    "the elements of decays must be between 0 and 1"
-                )
+                raise ValueError("the elements of decays must be between 0 and 1")
         else:
             decays = [random.uniform(0.3, 0.4) for _ in range(n_voices)]
 
@@ -1347,33 +1328,36 @@ class Transformer:
         if shapes is not None:
             if len(shapes) != n_voices:
                 raise ValueError("the length of shapes must equal n_voices")
-            if any((p not in ['t', 's']) for p in shapes):
+            if any((p not in ["t", "s"]) for p in shapes):
                 raise ValueError("the elements of shapes must be 's' or 't'")
         else:
-            shapes = [random.choice(['t', 's']) for _ in range(n_voices)]
+            shapes = [random.choice(["t", "s"]) for _ in range(n_voices)]
 
-        effect_args = ['chorus', '{}'.format(gain_in), '{}'.format(gain_out)]
+        effect_args = ["chorus", "{}".format(gain_in), "{}".format(gain_out)]
 
         for i in range(n_voices):
-            effect_args.extend([
-                '{:f}'.format(delays[i]),
-                '{:f}'.format(decays[i]),
-                '{:f}'.format(speeds[i]),
-                '{:f}'.format(depths[i]),
-                '-{}'.format(shapes[i])
-            ])
+            effect_args.extend(
+                [
+                    "{:f}".format(delays[i]),
+                    "{:f}".format(decays[i]),
+                    "{:f}".format(speeds[i]),
+                    "{:f}".format(depths[i]),
+                    "-{}".format(shapes[i]),
+                ]
+            )
 
         self.effects.extend(effect_args)
-        self.effects_log.append('chorus')
+        self.effects_log.append("chorus")
         return self
 
-    def compand(self,
-                attack_time: float = 0.3,
-                decay_time: float = 0.8,
-                soft_knee_db: float = 6.0,
-                tf_points: List[Tuple[float, float]] = [(-70, -70), (-60, -20), (0, 0)],
-                ):
-        '''Compand (compress or expand) the dynamic range of the audio.
+    def compand(
+        self,
+        attack_time=0.3,
+        decay_time=0.8,
+        soft_knee_db=6.0,
+        tf_points=[(-70, -70), (-60, -20), (0, 0)],
+    ):
+        """Compand (compress or expand) the dynamic range of the audio.
 
         Parameters
         ----------
@@ -1394,7 +1378,7 @@ class Transformer:
         See Also
         --------
         mcompand, contrast
-        '''
+        """
         if not is_number(attack_time) or attack_time <= 0:
             raise ValueError("attack_time must be a positive number.")
 
@@ -1427,34 +1411,24 @@ class Transformer:
         if len(tf_points) > len(set([p[0] for p in tf_points])):
             raise ValueError("Found duplicate x-value in tf_points.")
 
-        tf_points = sorted(
-            tf_points,
-            key=lambda tf_points: tf_points[0]
-        )
+        tf_points = sorted(tf_points, key=lambda tf_points: tf_points[0])
         transfer_list = []
         for point in tf_points:
-            transfer_list.extend([
-                "{:f}".format(point[0]), "{:f}".format(point[1])
-            ])
+            transfer_list.extend(["{:f}".format(point[0]), "{:f}".format(point[1])])
 
-        effect_args = [
-            'compand',
-            "{:f},{:f}".format(attack_time, decay_time)
-        ]
+        effect_args = ["compand", "{:f},{:f}".format(attack_time, decay_time)]
 
         if soft_knee_db is not None:
-            effect_args.append(
-                "{:f}:{}".format(soft_knee_db, ",".join(transfer_list))
-            )
+            effect_args.append("{:f}:{}".format(soft_knee_db, ",".join(transfer_list)))
         else:
             effect_args.append(",".join(transfer_list))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('compand')
+        self.effects_log.append("compand")
         return self
 
     def contrast(self, amount=75):
-        '''Comparable with compression, this effect modifies an audio signal to
+        """Comparable with compression, this effect modifies an audio signal to
         make it sound louder.
 
         Parameters
@@ -1466,21 +1440,18 @@ class Transformer:
         --------
         compand, mcompand
 
-        '''
+        """
         if not is_number(amount) or amount < 0 or amount > 100:
-            raise ValueError('amount must be a number between 0 and 100.')
+            raise ValueError("amount must be a number between 0 and 100.")
 
-        effect_args = ['contrast', '{:f}'.format(amount)]
+        effect_args = ["contrast", "{:f}".format(amount)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('contrast')
+        self.effects_log.append("contrast")
         return self
 
-    def convert(self,
-                samplerate: Optional[float] = None,
-                n_channels: Optional[int] = None,
-                bitdepth: Optional[int] = None):
-        '''Converts output audio to the specified format.
+    def convert(self, samplerate=None, n_channels=None, bitdepth=None, bitrate=None):
+        """Converts output audio to the specified format.
 
         Parameters
         ----------
@@ -1490,33 +1461,35 @@ class Transformer:
             Desired number of channels. If None, defaults to the same as input.
         bitdepth : int, default=None
             Desired bitdepth. If None, defaults to the same as input.
+        bitrate : float, default=None
+            Desired bitrate. If None, defaults to the same as input. Uses Sox's -C parameter.
 
         See Also
         --------
         rate
 
-        '''
+        """
         bitdepths = [8, 16, 24, 32, 64]
         if bitdepth is not None:
             if bitdepth not in bitdepths:
-                raise ValueError(
-                    "bitdepth must be one of {}.".format(str(bitdepths))
-                )
-            self.output_format['bits'] = bitdepth
+                raise ValueError("bitdepth must be one of {}.".format(str(bitdepths)))
+            self.output_format["bits"] = bitdepth
         if n_channels is not None:
             if not isinstance(n_channels, int) or n_channels <= 0:
-                raise ValueError(
-                    "n_channels must be a positive integer."
-                )
-            self.output_format['channels'] = n_channels
+                raise ValueError("n_channels must be a positive integer.")
+            self.output_format["channels"] = n_channels
         if samplerate is not None:
             if not is_number(samplerate) or samplerate <= 0:
                 raise ValueError("samplerate must be a positive number.")
-            self.rate(samplerate)
+            self.rate = samplerate
+        if bitrate is not None:
+            if not isinstance(bitrate, float) or bitrate <= 0:
+                raise ValueError("bitrate must be a positive float.")
+            self.output_format["bitrate"] = bitrate
         return self
 
-    def dcshift(self, shift: float = 0.0):
-        '''Apply a DC shift to the audio.
+    def dcshift(self, shift=0.0):
+        """Apply a DC shift to the audio.
 
         Parameters
         ----------
@@ -1527,18 +1500,18 @@ class Transformer:
         --------
         highpass
 
-        '''
+        """
         if not is_number(shift) or shift < -2 or shift > 2:
-            raise ValueError('shift must be a number between -2 and 2.')
+            raise ValueError("shift must be a number between -2 and 2.")
 
-        effect_args = ['dcshift', '{:f}'.format(shift)]
+        effect_args = ["dcshift", "{:f}".format(shift)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('dcshift')
+        self.effects_log.append("dcshift")
         return self
 
     def deemph(self):
-        '''Apply Compact Disc (IEC 60908) de-emphasis (a treble attenuation
+        """Apply Compact Disc (IEC 60908) de-emphasis (a treble attenuation
         shelving filter). Pre-emphasis was applied in the mastering of some
         CDs issued in the early 1980s. These included many classical music
         albums, as well as now sought-after issues of albums by The Beatles,
@@ -1555,15 +1528,15 @@ class Transformer:
         See Also
         --------
         bass, treble
-        '''
-        effect_args = ['deemph']
+        """
+        effect_args = ["deemph"]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('deemph')
+        self.effects_log.append("deemph")
         return self
 
-    def delay(self, positions: List[float]):
-        '''Delay one or more audio channels such that they start at the given
+    def delay(self, positions):
+        """Delay one or more audio channels such that they start at the given
         positions.
 
         Parameters
@@ -1573,22 +1546,22 @@ class Transformer:
             If fewer positions are given than the number of channels, the
             remaining channels will be unaffected.
 
-        '''
+        """
         if not isinstance(positions, list):
             raise ValueError("positions must be a a list of numbers")
 
         if not all((is_number(p) and p >= 0) for p in positions):
             raise ValueError("positions must be positive nubmers")
 
-        effect_args = ['delay']
-        effect_args.extend(['{:f}'.format(p) for p in positions])
+        effect_args = ["delay"]
+        effect_args.extend(["{:f}".format(p) for p in positions])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('delay')
+        self.effects_log.append("delay")
         return self
 
-    def downsample(self, factor: int = 2):
-        '''Downsample the signal by an integer factor. Only the first out of
+    def downsample(self, factor=2):
+        """Downsample the signal by an integer factor. Only the first out of
         each factor samples is retained, the others are discarded.
 
         No decimation filter is applied. If the input is not a properly
@@ -1606,38 +1579,33 @@ class Transformer:
         --------
         rate, upsample
 
-        '''
+        """
         if not isinstance(factor, int) or factor < 1:
-            raise ValueError('factor must be a positive integer.')
+            raise ValueError("factor must be a positive integer.")
 
-        effect_args = ['downsample', '{}'.format(factor)]
+        effect_args = ["downsample", "{}".format(factor)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('downsample')
+        self.effects_log.append("downsample")
         return self
 
     def earwax(self):
-        '''Makes audio easier to listen to on headphones. Adds ‘cues’ to 44.1kHz
+        """Makes audio easier to listen to on headphones. Adds ‘cues’ to 44.1kHz
         stereo audio so that when listened to on headphones the stereo image is
         moved from inside your head (standard for headphones) to outside and in
         front of the listener (standard for speakers).
 
         Warning: Will only work properly on 44.1kHz stereo audio!
 
-        '''
-        effect_args = ['earwax']
+        """
+        effect_args = ["earwax"]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('earwax')
+        self.effects_log.append("earwax")
         return self
 
-    def echo(self,
-             gain_in: float = 0.8,
-             gain_out: float = 0.9,
-             n_echos: int = 1,
-             delays: List[float] = [60],
-             decays: List[float] = [0.4]):
-        '''Add echoing to the audio.
+    def echo(self, gain_in=0.8, gain_out=0.9, n_echos=1, delays=[60], decays=[0.4]):
+        """Add echoing to the audio.
 
         Echoes are reflected sound and can occur naturally amongst mountains
         (and sometimes large buildings) when talking or shouting; digital echo
@@ -1663,7 +1631,7 @@ class Transformer:
         See Also
         --------
         echos, reverb, chorus
-        '''
+        """
         if not is_number(gain_in) or gain_in <= 0 or gain_in > 1:
             raise ValueError("gain_in must be a number between 0 and 1.")
 
@@ -1690,29 +1658,19 @@ class Transformer:
         if len(decays) != n_echos:
             raise ValueError("the length of decays must equal n_echos")
         if any((not is_number(p) or p <= 0 or p > 1) for p in decays):
-            raise ValueError(
-                "the elements of decays must be between 0 and 1"
-            )
+            raise ValueError("the elements of decays must be between 0 and 1")
 
-        effect_args = ['echo', '{:f}'.format(gain_in), '{:f}'.format(gain_out)]
+        effect_args = ["echo", "{:f}".format(gain_in), "{:f}".format(gain_out)]
 
         for i in range(n_echos):
-            effect_args.extend([
-                '{}'.format(delays[i]),
-                '{}'.format(decays[i])
-            ])
+            effect_args.extend(["{}".format(delays[i]), "{}".format(decays[i])])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('echo')
+        self.effects_log.append("echo")
         return self
 
-    def echos(self,
-              gain_in: float = 0.8,
-              gain_out: float = 0.9,
-              n_echos: int = 1,
-              delays: List[float] = [60],
-              decays: List[float] = [0.4]):
-        '''Add a sequence of echoes to the audio.
+    def echos(self, gain_in=0.8, gain_out=0.9, n_echos=1, delays=[60], decays=[0.4]):
+        """Add a sequence of echoes to the audio.
 
         Like the echo effect, echos stand for ‘ECHO in Sequel’, that is the
         first echos takes the input, the second the input and the first echos,
@@ -1736,7 +1694,7 @@ class Transformer:
         See Also
         --------
         echo, reverb, chorus
-        '''
+        """
         if not is_number(gain_in) or gain_in <= 0 or gain_in > 1:
             raise ValueError("gain_in must be a number between 0 and 1.")
 
@@ -1748,7 +1706,7 @@ class Transformer:
 
         # validate delays
         if not isinstance(delays, list):
-            raise ValueError("the delays must be a list ")
+            raise ValueError("delays must be a list")
 
         if len(delays) != n_echos:
             raise ValueError("the length of delays must equal n_echos")
@@ -1758,34 +1716,24 @@ class Transformer:
 
         # validate decays
         if not isinstance(decays, list):
-            raise ValueError("the decays must be a list ")
+            raise ValueError("decays must be a list")
 
         if len(decays) != n_echos:
             raise ValueError("the length of decays must equal n_echos")
         if any((not is_number(p) or p <= 0 or p > 1) for p in decays):
-            raise ValueError(
-                "the elements of decays must be between 0 and 1"
-            )
+            raise ValueError("the elements of decays must be between 0 and 1")
 
-        effect_args = [
-            'echos', '{:f}'.format(gain_in), '{:f}'.format(gain_out)
-        ]
+        effect_args = ["echos", "{:f}".format(gain_in), "{:f}".format(gain_out)]
 
         for i in range(n_echos):
-            effect_args.extend([
-                '{:f}'.format(delays[i]),
-                '{:f}'.format(decays[i])
-            ])
+            effect_args.extend(["{:f}".format(delays[i]), "{:f}".format(decays[i])])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('echos')
+        self.effects_log.append("echos")
         return self
 
-    def equalizer(self,
-                  frequency: float,
-                  width_q: float,
-                  gain_db: float):
-        '''Apply a two-pole peaking equalisation (EQ) filter to boost or
+    def equalizer(self, frequency, width_q, gain_db):
+        """Apply a two-pole peaking equalisation (EQ) filter to boost or
         reduce around a given frequency.
         This effect can be applied multiple times to produce complex EQ curves.
 
@@ -1802,7 +1750,7 @@ class Transformer:
         --------
         bass, treble
 
-        '''
+        """
         if not is_number(frequency) or frequency <= 0:
             raise ValueError("frequency must be a positive number.")
 
@@ -1813,19 +1761,17 @@ class Transformer:
             raise ValueError("gain_db must be a number.")
 
         effect_args = [
-            'equalizer',
-            '{:f}'.format(frequency),
-            '{:f}q'.format(width_q),
-            '{:f}'.format(gain_db)
+            "equalizer",
+            "{:f}".format(frequency),
+            "{:f}q".format(width_q),
+            "{:f}".format(gain_db),
         ]
         self.effects.extend(effect_args)
-        self.effects_log.append('equalizer')
+        self.effects_log.append("equalizer")
         return self
 
-    def fade(self, fade_in_len: float = 0.0,
-             fade_out_len: float = 0.0,
-             fade_shape: Literal['q', 'h', 't', 'l', 'p'] = 'q'):
-        '''Add a fade in and/or fade out to an audio file.
+    def fade(self, fade_in_len=0.0, fade_out_len=0.0, fade_shape="q"):
+        """Add a fade in and/or fade out to an audio file.
         Default fade shape is 1/4 sine wave.
 
         Parameters
@@ -1848,8 +1794,8 @@ class Transformer:
         --------
         splice
 
-        '''
-        fade_shapes = ['q', 'h', 't', 'l', 'p']
+        """
+        fade_shapes = ["q", "h", "t", "l", "p"]
         if fade_shape not in fade_shapes:
             raise ValueError(
                 "Fade shape must be one of {}".format(" ".join(fade_shapes))
@@ -1862,52 +1808,62 @@ class Transformer:
         effect_args = []
 
         if fade_in_len > 0:
-            effect_args.extend([
-                'fade', '{}'.format(fade_shape), '{:f}'.format(fade_in_len)
-            ])
+            effect_args.extend(
+                ["fade", "{}".format(fade_shape), "{:f}".format(fade_in_len)]
+            )
 
         if fade_out_len > 0:
-            effect_args.extend([
-                'reverse', 'fade', '{}'.format(fade_shape),
-                '{:f}'.format(fade_out_len), 'reverse'
-            ])
+            effect_args.extend(
+                [
+                    "reverse",
+                    "fade",
+                    "{}".format(fade_shape),
+                    "{:f}".format(fade_out_len),
+                    "reverse",
+                ]
+            )
 
         if len(effect_args) > 0:
             self.effects.extend(effect_args)
-            self.effects_log.append('fade')
+            self.effects_log.append("fade")
 
         return self
 
-    def fir(self, coefficients: List[float]):
-        '''Use SoX’s FFT convolution engine with given FIR filter coefficients.
+    def fir(self, coefficients):
+        """Use SoX’s FFT convolution engine with given FIR filter coefficients.
 
         Parameters
         ----------
         coefficients : list
             fir filter coefficients
 
-        '''
+        """
         if not isinstance(coefficients, list):
-            raise ValueError("coefficients must be a list")
+            raise ValueError("coefficients must be a list.")
 
         if not all([is_number(c) for c in coefficients]):
             raise ValueError("coefficients must be numbers.")
 
-        effect_args = ['fir']
-        effect_args.extend(['{:f}'.format(c) for c in coefficients])
+        effect_args = ["fir"]
+        effect_args.extend(["{:f}".format(c) for c in coefficients])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('fir')
+        self.effects_log.append("fir")
 
         return self
 
-    def flanger(self,
-                delay: float = 0, depth: float = 2,
-                regen: float = 0, width: float = 71, speed: float = 0.5,
-                shape: Literal['sine', 'triangle'] = 'sine',
-                phase: float = 25,
-                interp: Literal['linear', 'quadratic'] = 'linear'):
-        '''Apply a flanging effect to the audio.
+    def flanger(
+        self,
+        delay=0,
+        depth=2,
+        regen=0,
+        width=71,
+        speed=0.5,
+        shape="sine",
+        phase=25,
+        interp="linear",
+    ):
+        """Apply a flanging effect to the audio.
 
         Parameters
         ----------
@@ -1932,7 +1888,7 @@ class Transformer:
         See Also
         --------
         tremolo
-        '''
+        """
         if not is_number(delay) or delay < 0 or delay > 30:
             raise ValueError("delay must be a number between 0 and 30.")
         if not is_number(depth) or depth < 0 or depth > 10:
@@ -1943,36 +1899,32 @@ class Transformer:
             raise ValueError("width must be a number between 0 and 100.")
         if not is_number(speed) or speed < 0.1 or speed > 10:
             raise ValueError("speed must be a number between 0.1 and 10.")
-        if shape not in ['sine', 'triangle']:
+        if shape not in ["sine", "triangle"]:
             raise ValueError("shape must be one of 'sine' or 'triangle'.")
         if not is_number(phase) or phase < 0 or phase > 100:
             raise ValueError("phase must be a number between 0 and 100.")
-        if interp not in ['linear', 'quadratic']:
+        if interp not in ["linear", "quadratic"]:
             raise ValueError("interp must be one of 'linear' or 'quadratic'.")
 
         effect_args = [
-            'flanger',
-            '{:f}'.format(delay),
-            '{:f}'.format(depth),
-            '{:f}'.format(regen),
-            '{:f}'.format(width),
-            '{:f}'.format(speed),
-            '{}'.format(shape),
-            '{:f}'.format(phase),
-            '{}'.format(interp)
+            "flanger",
+            "{:f}".format(delay),
+            "{:f}".format(depth),
+            "{:f}".format(regen),
+            "{:f}".format(width),
+            "{:f}".format(speed),
+            "{}".format(shape),
+            "{:f}".format(phase),
+            "{}".format(interp),
         ]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('flanger')
+        self.effects_log.append("flanger")
 
         return self
 
-    def gain(self,
-             gain_db: float = 0.0,
-             normalize: bool = True,
-             limiter: bool = False,
-             balance: Optional[Literal['e', 'B', 'b']] = None):
-        '''Apply amplification or attenuation to the audio signal.
+    def gain(self, gain_db=0.0, normalize=True, limiter=False, balance=None):
+        """Apply amplification or attenuation to the audio signal.
 
         Parameters
         ----------
@@ -2001,7 +1953,7 @@ class Transformer:
         --------
         loudness
 
-        '''
+        """
         if not is_number(gain_db):
             raise ValueError("gain_db must be a number.")
 
@@ -2011,31 +1963,28 @@ class Transformer:
         if not isinstance(limiter, bool):
             raise ValueError("limiter must be a boolean.")
 
-        if balance not in [None, 'e', 'B', 'b']:
+        if balance not in [None, "e", "B", "b"]:
             raise ValueError("balance must be one of None, 'e', 'B', or 'b'.")
 
-        effect_args = ['gain']
+        effect_args = ["gain"]
 
         if balance is not None:
-            effect_args.append('-{}'.format(balance))
+            effect_args.append("-{}".format(balance))
 
         if normalize:
-            effect_args.append('-n')
+            effect_args.append("-n")
 
         if limiter:
-            effect_args.append('-l')
+            effect_args.append("-l")
 
-        effect_args.append('{:f}'.format(gain_db))
+        effect_args.append("{:f}".format(gain_db))
         self.effects.extend(effect_args)
-        self.effects_log.append('gain')
+        self.effects_log.append("gain")
 
         return self
 
-    def highpass(self,
-                 frequency: float,
-                 width_q: float = 0.707,
-                 n_poles: int = 2):
-        '''Apply a high-pass filter with 3dB point frequency. The filter can be
+    def highpass(self, frequency, width_q=0.707, n_poles=2):
+        """Apply a high-pass filter with 3dB point frequency. The filter can be
         either single-pole or double-pole. The filters roll off at 6dB per pole
         per octave (20dB per pole per decade).
 
@@ -2053,7 +2002,7 @@ class Transformer:
         --------
         lowpass, equalizer, sinc, allpass
 
-        '''
+        """
         if not is_number(frequency) or frequency <= 0:
             raise ValueError("frequency must be a positive number.")
 
@@ -2063,23 +2012,18 @@ class Transformer:
         if n_poles not in [1, 2]:
             raise ValueError("n_poles must be 1 or 2.")
 
-        effect_args = [
-            'highpass', '-{}'.format(n_poles), '{:f}'.format(frequency)
-        ]
+        effect_args = ["highpass", "-{}".format(n_poles), "{:f}".format(frequency)]
 
         if n_poles == 2:
-            effect_args.append('{:f}q'.format(width_q))
+            effect_args.append("{:f}q".format(width_q))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('highpass')
+        self.effects_log.append("highpass")
 
         return self
 
-    def lowpass(self,
-                frequency: float,
-                width_q: float = 0.707,
-                n_poles: int = 2):
-        '''Apply a low-pass filter with 3dB point frequency. The filter can be
+    def lowpass(self, frequency, width_q=0.707, n_poles=2):
+        """Apply a low-pass filter with 3dB point frequency. The filter can be
         either single-pole or double-pole. The filters roll off at 6dB per pole
         per octave (20dB per pole per decade).
 
@@ -2097,7 +2041,7 @@ class Transformer:
         --------
         highpass, equalizer, sinc, allpass
 
-        '''
+        """
         if not is_number(frequency) or frequency <= 0:
             raise ValueError("frequency must be a positive number.")
 
@@ -2107,20 +2051,18 @@ class Transformer:
         if n_poles not in [1, 2]:
             raise ValueError("n_poles must be 1 or 2.")
 
-        effect_args = [
-            'lowpass', '-{}'.format(n_poles), '{:f}'.format(frequency)
-        ]
+        effect_args = ["lowpass", "-{}".format(n_poles), "{:f}".format(frequency)]
 
         if n_poles == 2:
-            effect_args.append('{:f}q'.format(width_q))
+            effect_args.append("{:f}q".format(width_q))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('lowpass')
+        self.effects_log.append("lowpass")
 
         return self
 
-    def hilbert(self, num_taps: Optional[int] = None):
-        '''Apply an odd-tap Hilbert transform filter, phase-shifting the signal
+    def hilbert(self, num_taps=None):
+        """Apply an odd-tap Hilbert transform filter, phase-shifting the signal
         by 90 degrees. This is used in many matrix coding schemes and for
         analytic signal generation. The process is often written as a
         multiplication by i (or j), the imaginary unit. An odd-tap Hilbert
@@ -2133,25 +2075,25 @@ class Transformer:
             Number of filter taps - must be odd. If none, it is chosen to have
             a cutoff frequency of about 75 Hz.
 
-        '''
+        """
         if num_taps is not None and not isinstance(num_taps, int):
             raise ValueError("num taps must be None or an odd integer.")
 
         if num_taps is not None and num_taps % 2 == 0:
             raise ValueError("num_taps must an odd integer.")
 
-        effect_args = ['hilbert']
+        effect_args = ["hilbert"]
 
         if num_taps is not None:
-            effect_args.extend(['-n', '{}'.format(num_taps)])
+            effect_args.extend(["-n", "{}".format(num_taps)])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('hilbert')
+        self.effects_log.append("hilbert")
 
         return self
 
-    def loudness(self, gain_db: float = -10.0, reference_level: float = 65.0):
-        '''Loudness control. Similar to the gain effect, but provides
+    def loudness(self, gain_db=-10.0, reference_level=65.0):
+        """Loudness control. Similar to the gain effect, but provides
         equalisation for the human auditory system.
 
         The gain is adjusted by gain_db and the signal is equalised according
@@ -2169,39 +2111,41 @@ class Transformer:
         --------
         gain
 
-        '''
+        """
         if not is_number(gain_db):
-            raise ValueError('gain_db must be a number.')
+            raise ValueError("gain_db must be a number.")
 
         if not is_number(reference_level):
-            raise ValueError('reference_level must be a number')
+            raise ValueError("reference_level must be a number")
 
         if reference_level > 75 or reference_level < 50:
-            raise ValueError('reference_level must be between 50 and 75')
+            raise ValueError("reference_level must be between 50 and 75")
 
         effect_args = [
-            'loudness',
-            '{:f}'.format(gain_db),
-            '{:f}'.format(reference_level)
+            "loudness",
+            "{:f}".format(gain_db),
+            "{:f}".format(reference_level),
         ]
         self.effects.extend(effect_args)
-        self.effects_log.append('loudness')
+        self.effects_log.append("loudness")
 
         return self
 
-    def mcompand(self,
-                 n_bands: int = 2,
-                 crossover_frequencies: List[float] = [1600],
-                 attack_time: List[float] = [0.005, 0.000625],
-                 decay_time: List[float] = [0.1, 0.0125],
-                 soft_knee_db: List[Optional[float]] = [6.0, None],
-                 tf_points: List[List[Tuple[float, float]]] = [
-                     [(-47, -40), (-34, -34), (-17, -33), (0, 0)],
-                     [(-47, -40), (-34, -34), (-15, -33), (0, 0)]
-                 ],
-                 gain: List[Optional[float]] = [None, None]):
+    def mcompand(
+        self,
+        n_bands=2,
+        crossover_frequencies=[1600],
+        attack_time=[0.005, 0.000625],
+        decay_time=[0.1, 0.0125],
+        soft_knee_db=[6.0, None],
+        tf_points=[
+            [(-47, -40), (-34, -34), (-17, -33), (0, 0)],
+            [(-47, -40), (-34, -34), (-15, -33), (0, 0)],
+        ],
+        gain=[None, None],
+    ):
 
-        '''The multi-band compander is similar to the single-band compander but
+        """The multi-band compander is similar to the single-band compander but
         the audio is first divided into bands using Linkwitz-Riley cross-over
         filters and a separately specifiable compander run on each band.
 
@@ -2246,20 +2190,20 @@ class Transformer:
         --------
         compand, contrast
 
-        '''
+        """
         if not isinstance(n_bands, int) or n_bands < 1:
             raise ValueError("n_bands must be a positive integer.")
 
-        if (not isinstance(crossover_frequencies, list) or
-                len(crossover_frequencies) != n_bands - 1):
+        if (
+            not isinstance(crossover_frequencies, list)
+            or len(crossover_frequencies) != n_bands - 1
+        ):
             raise ValueError(
                 "crossover_frequences must be a list of length n_bands - 1"
             )
 
         if any([not is_number(f) or f < 0 for f in crossover_frequencies]):
-            raise ValueError(
-                "crossover_frequencies elements must be positive floats."
-            )
+            raise ValueError("crossover_frequencies elements must be positive floats.")
 
         if not isinstance(attack_time, list) or len(attack_time) != n_bands:
             raise ValueError("attack_time must be a list of length n_bands")
@@ -2285,17 +2229,13 @@ class Transformer:
             raise ValueError("soft_knee_db must be a list of length n_bands.")
 
         if any([(not is_number(d) and d is not None) for d in soft_knee_db]):
-            raise ValueError(
-                "elements of soft_knee_db must be a number or None."
-            )
+            raise ValueError("elements of soft_knee_db must be a number or None.")
 
         if not isinstance(tf_points, list) or len(tf_points) != n_bands:
             raise ValueError("tf_points must be a list of length n_bands.")
 
         if any([not isinstance(t, list) or len(t) == 0 for t in tf_points]):
-            raise ValueError(
-                "tf_points must be a list with at least one point."
-            )
+            raise ValueError("tf_points must be a list with at least one point.")
 
         for tfp in tf_points:
             if any(not isinstance(pair, tuple) for pair in tfp):
@@ -2303,13 +2243,9 @@ class Transformer:
             if any(len(pair) != 2 for pair in tfp):
                 raise ValueError("Tuples in tf_points lists must be length 2")
             if any(not (is_number(p[0]) and is_number(p[1])) for p in tfp):
-                raise ValueError(
-                    "Tuples in tf_points lists must be pairs of numbers."
-                )
+                raise ValueError("Tuples in tf_points lists must be pairs of numbers.")
             if any((p[0] > 0 or p[1] > 0) for p in tfp):
-                raise ValueError(
-                    "Tuple values in tf_points lists must be <= 0 (dB)."
-                )
+                raise ValueError("Tuple values in tf_points lists must be <= 0 (dB).")
             if len(tfp) > len(set([p[0] for p in tfp])):
                 raise ValueError("Found duplicate x-value in tf_points list.")
 
@@ -2319,25 +2255,22 @@ class Transformer:
         if any([not (is_number(g) or g is None) for g in gain]):
             raise ValueError("gain elements must be numbers or None.")
 
-        effect_args = ['mcompand']
+        effect_args = ["mcompand"]
 
         for i in range(n_bands):
 
             if i > 0:
-                effect_args.append('{:f}'.format(crossover_frequencies[i - 1]))
+                effect_args.append("{:f}".format(crossover_frequencies[i - 1]))
 
             intermed_args = ["{:f},{:f}".format(attack_time[i], decay_time[i])]
 
             tf_points_band = tf_points[i]
             tf_points_band = sorted(
-                tf_points_band,
-                key=lambda tf_points_band: tf_points_band[0]
+                tf_points_band, key=lambda tf_points_band: tf_points_band[0]
             )
             transfer_list = []
             for point in tf_points_band:
-                transfer_list.extend([
-                    "{:f}".format(point[0]), "{:f}".format(point[1])
-                ])
+                transfer_list.extend(["{:f}".format(point[0]), "{:f}".format(point[1])])
 
             if soft_knee_db[i] is not None:
                 intermed_args.append(
@@ -2349,16 +2282,14 @@ class Transformer:
             if gain[i] is not None:
                 intermed_args.append("{:f}".format(gain[i]))
 
-            effect_args.append(' '.join(intermed_args))
+            effect_args.append(" ".join(intermed_args))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('mcompand')
+        self.effects_log.append("mcompand")
         return self
 
-    def noiseprof(self,
-                  input_filepath: Union[str, Path],
-                  profile_path: Union[str, Path]):
-        '''Calculate a profile of the audio for use in noise reduction.
+    def noiseprof(self, input_filepath, profile_path):
+        """Calculate a profile of the audio for use in noise reduction.
         Running this command does not effect the Transformer effects
         chain. When this function is called, the calculated noise profile
         file is saved to the `profile_path`.
@@ -2374,27 +2305,25 @@ class Transformer:
         --------
         noisered
 
-        '''
+        """
         if os.path.isdir(profile_path):
-            raise ValueError(
-                "profile_path {} is a directory.".format(profile_path))
+            raise ValueError("profile_path {} is a directory.".format(profile_path))
 
-        if os.path.dirname(profile_path) == '' and profile_path != '':
+        if os.path.dirname(profile_path) == "" and profile_path != "":
             _abs_profile_path = os.path.join(os.getcwd(), profile_path)
         else:
             _abs_profile_path = profile_path
 
         if not os.access(os.path.dirname(_abs_profile_path), os.W_OK):
-            raise IOError(
-                "profile_path {} is not writeable.".format(_abs_profile_path))
+            raise IOError("profile_path {} is not writeable.".format(_abs_profile_path))
 
-        effect_args = ['noiseprof', profile_path]
-        self.build(input_filepath, '-n', extra_args=effect_args)
+        effect_args = ["noiseprof", profile_path]
+        self.build(input_filepath, "-n", extra_args=effect_args)
 
         return None
 
-    def noisered(self, profile_path: Union[str, Path], amount: float = 0.5):
-        '''Reduce noise in the audio signal by profiling and filtering.
+    def noisered(self, profile_path, amount=0.5):
+        """Reduce noise in the audio signal by profiling and filtering.
         This effect is moderately effective at removing consistent
         background noise such as hiss or hum.
 
@@ -2413,27 +2342,22 @@ class Transformer:
         --------
         noiseprof
 
-        '''
+        """
 
         if not os.path.exists(profile_path):
-            raise IOError(
-                "profile_path {} does not exist.".format(profile_path))
+            raise IOError("profile_path {} does not exist.".format(profile_path))
 
         if not is_number(amount) or amount < 0 or amount > 1:
             raise ValueError("amount must be a number between 0 and 1.")
 
-        effect_args = [
-            'noisered',
-            profile_path,
-            '{:f}'.format(amount)
-        ]
+        effect_args = ["noisered", profile_path, "{:f}".format(amount)]
         self.effects.extend(effect_args)
-        self.effects_log.append('noisered')
+        self.effects_log.append("noisered")
 
         return self
 
-    def norm(self, db_level: float = -3.0):
-        '''Normalize an audio file to a particular db level.
+    def norm(self, db_level=-3.0):
+        """Normalize an audio file to a particular db level.
         This behaves identically to the gain effect with normalize=True.
 
         Parameters
@@ -2445,34 +2369,31 @@ class Transformer:
         --------
         gain, loudness
 
-        '''
+        """
         if not is_number(db_level):
-            raise ValueError('db_level must be a number.')
+            raise ValueError("db_level must be a number.")
 
-        effect_args = [
-            'norm',
-            '{:f}'.format(db_level)
-        ]
+        effect_args = ["norm", "{:f}".format(db_level)]
         self.effects.extend(effect_args)
-        self.effects_log.append('norm')
+        self.effects_log.append("norm")
 
         return self
 
     def oops(self):
-        '''Out Of Phase Stereo effect. Mixes stereo to twin-mono where each
+        """Out Of Phase Stereo effect. Mixes stereo to twin-mono where each
         mono channel contains the difference between the left and right stereo
         channels. This is sometimes known as the 'karaoke' effect as it often
         has the effect of removing most or all of the vocals from a recording.
 
-        '''
-        effect_args = ['oops']
+        """
+        effect_args = ["oops"]
         self.effects.extend(effect_args)
-        self.effects_log.append('oops')
+        self.effects_log.append("oops")
 
         return self
 
-    def overdrive(self, gain_db: float = 20.0, colour: float = 20.0):
-        '''Apply non-linear distortion.
+    def overdrive(self, gain_db=20.0, colour=20.0):
+        """Apply non-linear distortion.
 
         Parameters
         ----------
@@ -2481,25 +2402,21 @@ class Transformer:
         colour : float, default=20
             Controls the amount of even harmonic content in the output (dB).
 
-        '''
+        """
         if not is_number(gain_db):
-            raise ValueError('db_level must be a number.')
+            raise ValueError("db_level must be a number.")
 
         if not is_number(colour):
-            raise ValueError('colour must be a number.')
+            raise ValueError("colour must be a number.")
 
-        effect_args = [
-            'overdrive',
-            '{:f}'.format(gain_db),
-            '{:f}'.format(colour)
-        ]
+        effect_args = ["overdrive", "{:f}".format(gain_db), "{:f}".format(colour)]
         self.effects.extend(effect_args)
-        self.effects_log.append('overdrive')
+        self.effects_log.append("overdrive")
 
         return self
 
-    def pad(self, start_duration: float = 0.0, end_duration: float = 0.0):
-        '''Add silence to the beginning or end of a file.
+    def pad(self, start_duration=0.0, end_duration=0.0):
+        """Add silence to the beginning or end of a file.
         Calling this with the default arguments has no effect.
 
         Parameters
@@ -2513,7 +2430,7 @@ class Transformer:
         --------
         delay
 
-        '''
+        """
         if not is_number(start_duration) or start_duration < 0:
             raise ValueError("Start duration must be a positive number.")
 
@@ -2521,20 +2438,25 @@ class Transformer:
             raise ValueError("End duration must be positive.")
 
         effect_args = [
-            'pad',
-            '{:f}'.format(start_duration),
-            '{:f}'.format(end_duration)
+            "pad",
+            "{:f}".format(start_duration),
+            "{:f}".format(end_duration),
         ]
         self.effects.extend(effect_args)
-        self.effects_log.append('pad')
+        self.effects_log.append("pad")
 
         return self
 
-    def phaser(self,
-               gain_in: float = 0.8, gain_out: float = 0.74,
-               delay: int = 3, decay: float = 0.4, speed: float = 0.5,
-               modulation_shape: Literal['sinusoidal', 'triangular'] = 'sinusoidal'):
-        '''Apply a phasing effect to the audio.
+    def phaser(
+        self,
+        gain_in=0.8,
+        gain_out=0.74,
+        delay=3,
+        decay=0.4,
+        speed=0.5,
+        modulation_shape="sinusoidal",
+    ):
+        """Apply a phasing effect to the audio.
 
         Parameters
         ----------
@@ -2554,7 +2476,7 @@ class Transformer:
         See Also
         --------
         flanger, tremolo
-        '''
+        """
         if not is_number(gain_in) or gain_in <= 0 or gain_in > 1:
             raise ValueError("gain_in must be a number between 0 and 1.")
 
@@ -2570,32 +2492,32 @@ class Transformer:
         if not is_number(speed) or speed < 0.1 or speed > 2:
             raise ValueError("speed must be a positive number.")
 
-        if modulation_shape not in ['sinusoidal', 'triangular']:
+        if modulation_shape not in ["sinusoidal", "triangular"]:
             raise ValueError(
                 "modulation_shape must be one of 'sinusoidal', 'triangular'."
             )
 
         effect_args = [
-            'phaser',
-            '{:f}'.format(gain_in),
-            '{:f}'.format(gain_out),
-            '{:f}'.format(delay),
-            '{:f}'.format(decay),
-            '{:f}'.format(speed)
+            "phaser",
+            "{:f}".format(gain_in),
+            "{:f}".format(gain_out),
+            "{:f}".format(delay),
+            "{:f}".format(decay),
+            "{:f}".format(speed),
         ]
 
-        if modulation_shape == 'sinusoidal':
-            effect_args.append('-s')
-        elif modulation_shape == 'triangular':
-            effect_args.append('-t')
+        if modulation_shape == "sinusoidal":
+            effect_args.append("-s")
+        elif modulation_shape == "triangular":
+            effect_args.append("-t")
 
         self.effects.extend(effect_args)
-        self.effects_log.append('phaser')
+        self.effects_log.append("phaser")
 
         return self
 
-    def pitch(self, n_semitones: float, quick: bool = False):
-        '''Pitch shift the audio without changing the tempo.
+    def pitch(self, n_semitones, quick=False):
+        """Pitch shift the audio without changing the tempo.
 
         This effect uses the WSOLA algorithm. The audio is chopped up into
         segments which are then shifted in the time domain and overlapped
@@ -2613,34 +2535,32 @@ class Transformer:
         --------
         bend, speed, tempo
 
-        '''
+        """
         if not is_number(n_semitones):
             raise ValueError("n_semitones must be a positive number")
 
         if n_semitones < -12 or n_semitones > 12:
             logger.warning(
-                "Using an extreme pitch shift. "
-                "Quality of results will be poor"
+                "Using an extreme pitch shift. " "Quality of results will be poor"
             )
 
         if not isinstance(quick, bool):
             raise ValueError("quick must be a boolean.")
 
-        effect_args = ['pitch']
+        effect_args = ["pitch"]
 
         if quick:
-            effect_args.append('-q')
+            effect_args.append("-q")
 
-        effect_args.append('{:f}'.format(n_semitones * 100.))
+        effect_args.append("{:f}".format(n_semitones * 100.0))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('pitch')
+        self.effects_log.append("pitch")
 
         return self
 
-    def rate(self, samplerate: float,
-             quality: Literal['q', 'l', 'm', 'h', 'v'] = 'h'):
-        '''Change the audio sampling rate (i.e. resample the audio) to any
+    def rate(self, samplerate, quality="h"):
+        """Change the audio sampling rate (i.e. resample the audio) to any
         given `samplerate`. Better the resampling quality = slower runtime.
 
         Parameters
@@ -2659,30 +2579,24 @@ class Transformer:
         --------
         upsample, downsample, convert
 
-        '''
-        quality_vals = ['q', 'l', 'm', 'h', 'v']
+        """
+        quality_vals = ["q", "l", "m", "h", "v"]
         if not is_number(samplerate) or samplerate <= 0:
             raise ValueError("Samplerate must be a positive number.")
 
         if quality not in quality_vals:
             raise ValueError(
-                "Quality must be one of {}.".format(' '.join(quality_vals))
+                "Quality must be one of {}.".format(" ".join(quality_vals))
             )
 
-        effect_args = [
-            'rate',
-            '-{}'.format(quality),
-            '{:f}'.format(samplerate)
-        ]
+        effect_args = ["rate", "-{}".format(quality), "{:f}".format(samplerate)]
         self.effects.extend(effect_args)
-        self.effects_log.append('rate')
+        self.effects_log.append("rate")
 
         return self
 
-    def remix(self,
-              remix_dictionary: Optional[Dict[int, List[int]]] = None,
-              num_output_channels: Optional[int] = None):
-        '''Remix the channels of an audio file.
+    def remix(self, remix_dictionary=None, num_output_channels=None):
+        """Remix the channels of an audio file.
 
         Note: volume options are not yet implemented
 
@@ -2709,21 +2623,16 @@ class Transformer:
         >>> remix_dictionary = {1: [2], 2: [1, 3], 4: [4]}
         >>> tfm.remix(remix_dictionary)
 
-        '''
-        if not (isinstance(remix_dictionary, dict) or
-                remix_dictionary is None):
+        """
+        if not (isinstance(remix_dictionary, dict) or remix_dictionary is None):
             raise ValueError("remix_dictionary must be a dictionary or None.")
 
         if remix_dictionary is not None:
 
-            if not all([isinstance(i, int) and i > 0 for i
-                        in remix_dictionary.keys()]):
-                raise ValueError(
-                    "remix dictionary must have positive integer keys."
-                )
+            if not all([isinstance(i, int) and i > 0 for i in remix_dictionary.keys()]):
+                raise ValueError("remix dictionary must have positive integer keys.")
 
-            if not all([isinstance(v, list) for v
-                        in remix_dictionary.values()]):
+            if not all([isinstance(v, list) for v in remix_dictionary.values()]):
                 raise ValueError("remix dictionary values must be lists.")
 
             for v_list in remix_dictionary.values():
@@ -2733,59 +2642,59 @@ class Transformer:
                         "be positive integers"
                     )
 
-        if not ((isinstance(num_output_channels, int) and
-                 num_output_channels > 0) or num_output_channels is None):
-            raise ValueError(
-                "num_output_channels must be a positive integer or None."
-            )
+        if not (
+            (isinstance(num_output_channels, int) and num_output_channels > 0)
+            or num_output_channels is None
+        ):
+            raise ValueError("num_output_channels must be a positive integer or None.")
 
-        effect_args = ['remix']
+        effect_args = ["remix"]
         if remix_dictionary is None:
-            effect_args.append('-')
+            effect_args.append("-")
         else:
             if num_output_channels is None:
                 num_output_channels = max(remix_dictionary.keys())
 
             for channel in range(1, num_output_channels + 1):
                 if channel in remix_dictionary.keys():
-                    out_channel = ','.join(
-                        [str(i) for i in remix_dictionary[channel]]
-                    )
+                    out_channel = ",".join([str(i) for i in remix_dictionary[channel]])
                 else:
-                    out_channel = '0'
+                    out_channel = "0"
 
                 effect_args.append(out_channel)
 
         self.effects.extend(effect_args)
-        self.effects_log.append('remix')
+        self.effects_log.append("remix")
 
         return self
 
-    def repeat(self, count: int = 1):
-        '''Repeat the entire audio count times.
+    def repeat(self, count=1):
+        """Repeat the entire audio count times.
 
         Parameters
         ----------
         count : int, default=1
             The number of times to repeat the audio.
 
-        '''
+        """
         if not isinstance(count, int) or count < 1:
             raise ValueError("count must be a postive integer.")
 
-        effect_args = ['repeat', '{}'.format(count)]
+        effect_args = ["repeat", "{}".format(count)]
         self.effects.extend(effect_args)
-        self.effects_log.append('repeat')
+        self.effects_log.append("repeat")
 
-    def reverb(self,
-               reverberance: float = 50,
-               high_freq_damping: float = 50,
-               room_scale: float = 100,
-               stereo_depth: float = 100,
-               pre_delay: float = 0,
-               wet_gain: float = 0,
-               wet_only: bool = False):
-        '''Add reverberation to the audio using the ‘freeverb’ algorithm.
+    def reverb(
+        self,
+        reverberance=50,
+        high_freq_damping=50,
+        room_scale=100,
+        stereo_depth=100,
+        pre_delay=0,
+        wet_gain=0,
+        wet_only=False,
+    ):
+        """Add reverberation to the audio using the ‘freeverb’ algorithm.
         A reverberation effect is sometimes desirable for concert halls that
         are too small or contain so many people that the hall’s natural
         reverberance is diminished. Applying a small amount of stereo reverb
@@ -2812,22 +2721,22 @@ class Transformer:
         --------
         echo
 
-        '''
+        """
 
-        if (not is_number(reverberance) or reverberance < 0 or
-                reverberance > 100):
+        if not is_number(reverberance) or reverberance < 0 or reverberance > 100:
             raise ValueError("reverberance must be between 0 and 100")
 
-        if (not is_number(high_freq_damping) or high_freq_damping < 0 or
-                high_freq_damping > 100):
+        if (
+            not is_number(high_freq_damping)
+            or high_freq_damping < 0
+            or high_freq_damping > 100
+        ):
             raise ValueError("high_freq_damping must be between 0 and 100")
 
-        if (not is_number(room_scale) or room_scale < 0 or
-                room_scale > 100):
+        if not is_number(room_scale) or room_scale < 0 or room_scale > 100:
             raise ValueError("room_scale must be between 0 and 100")
 
-        if (not is_number(stereo_depth) or stereo_depth < 0 or
-                stereo_depth > 100):
+        if not is_number(stereo_depth) or stereo_depth < 0 or stereo_depth > 100:
             raise ValueError("stereo_depth must be between 0 and 100")
 
         if not is_number(pre_delay) or pre_delay < 0:
@@ -2839,40 +2748,43 @@ class Transformer:
         if not isinstance(wet_only, bool):
             raise ValueError("wet_only must be a boolean.")
 
-        effect_args = ['reverb']
+        effect_args = ["reverb"]
 
         if wet_only:
-            effect_args.append('-w')
+            effect_args.append("-w")
 
-        effect_args.extend([
-            '{:f}'.format(reverberance),
-            '{:f}'.format(high_freq_damping),
-            '{:f}'.format(room_scale),
-            '{:f}'.format(stereo_depth),
-            '{:f}'.format(pre_delay),
-            '{:f}'.format(wet_gain)
-        ])
+        effect_args.extend(
+            [
+                "{:f}".format(reverberance),
+                "{:f}".format(high_freq_damping),
+                "{:f}".format(room_scale),
+                "{:f}".format(stereo_depth),
+                "{:f}".format(pre_delay),
+                "{:f}".format(wet_gain),
+            ]
+        )
 
         self.effects.extend(effect_args)
-        self.effects_log.append('reverb')
+        self.effects_log.append("reverb")
 
         return self
 
     def reverse(self):
-        '''Reverse the audio completely
-        '''
-        effect_args = ['reverse']
+        """Reverse the audio completely"""
+        effect_args = ["reverse"]
         self.effects.extend(effect_args)
-        self.effects_log.append('reverse')
+        self.effects_log.append("reverse")
 
         return self
 
-    def silence(self,
-                location: Literal[0, 1, -1] = 0,
-                silence_threshold: float = 0.1,
-                min_silence_duration: float = 0.1,
-                buffer_around_silence: bool = False):
-        '''Removes silent regions from an audio file.
+    def silence(
+        self,
+        location=0,
+        silence_threshold=0.1,
+        min_silence_duration=0.1,
+        buffer_around_silence=False,
+    ):
+        """Removes silent regions from an audio file.
 
         Parameters
         ----------
@@ -2895,23 +2807,17 @@ class Transformer:
         --------
         vad
 
-        '''
+        """
         if location not in [-1, 0, 1]:
             raise ValueError("location must be one of -1, 0, 1.")
 
         if not is_number(silence_threshold) or silence_threshold < 0:
-            raise ValueError(
-                "silence_threshold must be a number between 0 and 100"
-            )
+            raise ValueError("silence_threshold must be a number between 0 and 100")
         elif silence_threshold >= 100:
-            raise ValueError(
-                "silence_threshold must be a number between 0 and 100"
-            )
+            raise ValueError("silence_threshold must be a number between 0 and 100")
 
         if not is_number(min_silence_duration) or min_silence_duration <= 0:
-            raise ValueError(
-                "min_silence_duration must be a positive number."
-            )
+            raise ValueError("min_silence_duration must be a positive number.")
 
         if not isinstance(buffer_around_silence, bool):
             raise ValueError("buffer_around_silence must be a boolean.")
@@ -2919,41 +2825,47 @@ class Transformer:
         effect_args = []
 
         if location == -1:
-            effect_args.append('reverse')
+            effect_args.append("reverse")
 
         if buffer_around_silence:
-            effect_args.extend(['silence', '-l'])
+            effect_args.extend(["silence", "-l"])
         else:
-            effect_args.append('silence')
+            effect_args.append("silence")
 
-        effect_args.extend([
-            '1',
-            '{:f}'.format(min_silence_duration),
-            '{:f}%'.format(silence_threshold)
-        ])
+        effect_args.extend(
+            [
+                "1",
+                "{:f}".format(min_silence_duration),
+                "{:f}%".format(silence_threshold),
+            ]
+        )
 
         if location == 0:
-            effect_args.extend([
-                '-1',
-                '{:f}'.format(min_silence_duration),
-                '{:f}%'.format(silence_threshold)
-            ])
+            effect_args.extend(
+                [
+                    "-1",
+                    "{:f}".format(min_silence_duration),
+                    "{:f}%".format(silence_threshold),
+                ]
+            )
 
         if location == -1:
-            effect_args.append('reverse')
+            effect_args.append("reverse")
 
         self.effects.extend(effect_args)
-        self.effects_log.append('silence')
+        self.effects_log.append("silence")
 
         return self
 
-    def sinc(self,
-             filter_type: Literal['high', 'low', 'pass', 'reject'] = 'high',
-             cutoff_freq: Union[float, List[float]] = 3000,
-             stop_band_attenuation: float = 120,
-             transition_bw: Optional[Union[float, List[float]]] = None,
-             phase_response: Optional[float] = None):
-        '''Apply a sinc kaiser-windowed low-pass, high-pass, band-pass, or
+    def sinc(
+        self,
+        filter_type="high",
+        cutoff_freq=3000,
+        stop_band_attenuation=120,
+        transition_bw=None,
+        phase_response=None,
+    ):
+        """Apply a sinc kaiser-windowed low-pass, high-pass, band-pass, or
         band-reject filter to the signal.
 
         Parameters
@@ -2986,23 +2898,23 @@ class Transformer:
         See Also
         --------
         band, bandpass, bandreject, highpass, lowpass
-        '''
-        filter_types = ['high', 'low', 'pass', 'reject']
+        """
+        filter_types = ["high", "low", "pass", "reject"]
         if filter_type not in filter_types:
             raise ValueError(
-                "filter_type must be one of {}".format(', '.join(filter_types))
+                "filter_type must be one of {}".format(", ".join(filter_types))
             )
 
         if not (is_number(cutoff_freq) or isinstance(cutoff_freq, list)):
             raise ValueError("cutoff_freq must be a number or a list")
 
-        if filter_type in ['high', 'low'] and isinstance(cutoff_freq, list):
+        if filter_type in ["high", "low"] and isinstance(cutoff_freq, list):
             raise ValueError(
                 "For filter types 'high' and 'low', "
                 "cutoff_freq must be a float, not a list"
             )
 
-        if filter_type in ['pass', 'reject'] and is_number(cutoff_freq):
+        if filter_type in ["pass", "reject"] and is_number(cutoff_freq):
             raise ValueError(
                 "For filter types 'pass' and 'reject', "
                 "cutoff_freq must be a list, not a float"
@@ -3018,20 +2930,21 @@ class Transformer:
                 )
 
             if any([not is_number(f) or f <= 0 for f in cutoff_freq]):
-                raise ValueError(
-                    "elements of cutoff_freq must be positive numbers"
-                )
+                raise ValueError("elements of cutoff_freq must be positive numbers")
 
             cutoff_freq = sorted(cutoff_freq)
 
         if not is_number(stop_band_attenuation) or stop_band_attenuation < 0:
             raise ValueError("stop_band_attenuation must be a positive number")
 
-        if not (is_number(transition_bw) or
-                isinstance(transition_bw, list) or transition_bw is None):
+        if not (
+            is_number(transition_bw)
+            or isinstance(transition_bw, list)
+            or transition_bw is None
+        ):
             raise ValueError("transition_bw must be a number, a list or None.")
 
-        if filter_type in ['high', 'low'] and isinstance(transition_bw, list):
+        if filter_type in ["high", "low"] and isinstance(transition_bw, list):
             raise ValueError(
                 "For filter types 'high' and 'low', "
                 "transition_bw must be a float, not a list"
@@ -3042,9 +2955,7 @@ class Transformer:
 
         if isinstance(transition_bw, list):
             if any([not is_number(f) or f <= 0 for f in transition_bw]):
-                raise ValueError(
-                    "elements of transition_bw must be positive numbers"
-                )
+                raise ValueError("elements of transition_bw must be positive numbers")
             if len(transition_bw) != 2:
                 raise ValueError(
                     "If transition_bw is a list it may only have 2 elements."
@@ -3053,48 +2964,43 @@ class Transformer:
         if phase_response is not None and not is_number(phase_response):
             raise ValueError("phase_response must be a number or None.")
 
-        if (is_number(phase_response) and
-                (phase_response < 0 or phase_response > 100)):
+        if is_number(phase_response) and (phase_response < 0 or phase_response > 100):
             raise ValueError("phase response must be between 0 and 100")
 
-        effect_args = ['sinc']
-        effect_args.extend(['-a', '{:f}'.format(stop_band_attenuation)])
+        effect_args = ["sinc"]
+        effect_args.extend(["-a", "{:f}".format(stop_band_attenuation)])
 
         if phase_response is not None:
-            effect_args.extend(['-p', '{:f}'.format(phase_response)])
+            effect_args.extend(["-p", "{:f}".format(phase_response)])
 
-        if filter_type == 'high':
+        if filter_type == "high":
             if transition_bw is not None:
-                effect_args.extend(['-t', '{:f}'.format(transition_bw)])
-            effect_args.append('{:f}'.format(cutoff_freq))
-        elif filter_type == 'low':
-            effect_args.append('-{:f}'.format(cutoff_freq))
+                effect_args.extend(["-t", "{:f}".format(transition_bw)])
+            effect_args.append("{:f}".format(cutoff_freq))
+        elif filter_type == "low":
+            effect_args.append("-{:f}".format(cutoff_freq))
             if transition_bw is not None:
-                effect_args.extend(['-t', '{:f}'.format(transition_bw)])
+                effect_args.extend(["-t", "{:f}".format(transition_bw)])
         else:
             if is_number(transition_bw):
-                effect_args.extend(['-t', '{:f}'.format(transition_bw)])
+                effect_args.extend(["-t", "{:f}".format(transition_bw)])
             elif isinstance(transition_bw, list):
-                effect_args.extend(['-t', '{:f}'.format(transition_bw[0])])
+                effect_args.extend(["-t", "{:f}".format(transition_bw[0])])
 
-        if filter_type == 'pass':
-            effect_args.append(
-                '{:f}-{:f}'.format(cutoff_freq[0], cutoff_freq[1])
-            )
-        elif filter_type == 'reject':
-            effect_args.append(
-                '{:f}-{:f}'.format(cutoff_freq[1], cutoff_freq[0])
-            )
+        if filter_type == "pass":
+            effect_args.append("{:f}-{:f}".format(cutoff_freq[0], cutoff_freq[1]))
+        elif filter_type == "reject":
+            effect_args.append("{:f}-{:f}".format(cutoff_freq[1], cutoff_freq[0]))
 
         if isinstance(transition_bw, list):
-            effect_args.extend(['-t', '{:f}'.format(transition_bw[1])])
+            effect_args.extend(["-t", "{:f}".format(transition_bw[1])])
 
         self.effects.extend(effect_args)
-        self.effects_log.append('sinc')
+        self.effects_log.append("sinc")
         return self
 
-    def speed(self, factor: float):
-        '''Adjust the audio speed (pitch and tempo together).
+    def speed(self, factor):
+        """Adjust the audio speed (pitch and tempo together).
 
         Technically, the speed effect only changes the sample rate information,
         leaving the samples themselves untouched. The rate effect is invoked
@@ -3114,27 +3020,22 @@ class Transformer:
         See Also
         --------
         rate, tempo, pitch
-        '''
+        """
         if not is_number(factor) or factor <= 0:
             raise ValueError("factor must be a positive number")
 
         if factor < 0.5 or factor > 2:
-            logger.warning(
-                "Using an extreme factor. Quality of results will be poor"
-            )
+            logger.warning("Using an extreme factor. Quality of results will be poor")
 
-        effect_args = ['speed', '{:f}'.format(factor)]
+        effect_args = ["speed", "{:f}".format(factor)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('speed')
+        self.effects_log.append("speed")
 
         return self
 
-    def stat(self,
-             input_filepath: Union[str, Path],
-             scale: Optional[float] = None,
-             rms: Optional[bool] = False):
-        '''Display time and frequency domain statistical information about the
+    def stat(self, input_filepath, scale=None, rms=False):
+        """Display time and frequency domain statistical information about the
         audio. Audio is passed unmodified through the SoX processing chain.
 
         Unlike other Transformer methods, this does not modify the transformer
@@ -3160,34 +3061,34 @@ class Transformer:
         See Also
         --------
         stats, power_spectrum, sox.file_info
-        '''
-        effect_args = ['channels', '1', 'stat']
+        """
+        effect_args = ["channels", "1", "stat"]
         if scale is not None:
             if not is_number(scale) or scale <= 0:
                 raise ValueError("scale must be a positive number.")
-            effect_args.extend(['-s', '{:f}'.format(scale)])
+            effect_args.extend(["-s", "{:f}".format(scale)])
 
         if rms:
-            effect_args.append('-rms')
+            effect_args.append("-rms")
 
         _, _, stat_output = self.build(
-            input_filepath, '-n', extra_args=effect_args, return_output=True
+            input_filepath, "-n", extra_args=effect_args, return_output=True
         )
 
         stat_dict = {}
-        lines = stat_output.split('\n')
+        lines = stat_output.split("\n")
         for line in lines:
             split_line = line.split()
             if not split_line:
                 continue
             value = split_line[-1]
-            key = ' '.join(split_line[:-1])
-            stat_dict[key.strip(':')] = value
+            key = " ".join(split_line[:-1])
+            stat_dict[key.strip(":")] = value
 
         return stat_dict
 
-    def power_spectrum(self, input_filepath: Union[str, Path]):
-        '''Calculates the power spectrum (4096 point DFT). This method
+    def power_spectrum(self, input_filepath):
+        """Calculates the power spectrum (4096 point DFT). This method
         internally invokes the stat command with the -freq option.
 
         Note: The file is downmixed to mono prior to computation.
@@ -3205,15 +3106,15 @@ class Transformer:
         See Also
         --------
         stat, stats, sox.file_info
-        '''
-        effect_args = ['channels', '1', 'stat', '-freq']
+        """
+        effect_args = ["channels", "1", "stat", "-freq"]
 
         _, _, stat_output = self.build(
-            input_filepath, '-n', extra_args=effect_args, return_output=True
+            input_filepath, "-n", extra_args=effect_args, return_output=True
         )
 
         power_spectrum = []
-        lines = stat_output.split('\n')
+        lines = stat_output.split("\n")
         for line in lines:
             split_line = line.split()
             if len(split_line) != 2:
@@ -3224,8 +3125,8 @@ class Transformer:
 
         return power_spectrum
 
-    def stats(self, input_filepath: Union[str, Path]):
-        '''Display time domain statistical information about the audio
+    def stats(self, input_filepath):
+        """Display time domain statistical information about the audio
         channels. Audio is passed unmodified through the SoX processing chain.
         Statistics are calculated and displayed for each audio channel
 
@@ -3248,27 +3149,27 @@ class Transformer:
         See Also
         --------
         stat, sox.file_info
-        '''
-        effect_args = ['channels', '1', 'stats']
+        """
+        effect_args = ["channels", "1", "stats"]
 
         _, _, stats_output = self.build(
-            input_filepath, '-n', extra_args=effect_args, return_output=True
+            input_filepath, "-n", extra_args=effect_args, return_output=True
         )
 
         stats_dict = {}
-        lines = stats_output.split('\n')
+        lines = stats_output.split("\n")
         for line in lines:
             split_line = line.split()
             if len(split_line) == 0:
                 continue
             value = split_line[-1]
-            key = ' '.join(split_line[:-1])
+            key = " ".join(split_line[:-1])
             stats_dict[key] = value
 
         return stats_dict
 
-    def stretch(self, factor: float, window: float = 20):
-        '''Change the audio duration (but not its pitch).
+    def stretch(self, factor, window=20):
+        """Change the audio duration (but not its pitch).
         **Unless factor is close to 1, use the tempo effect instead.**
 
         This effect is broadly equivalent to the tempo effect with search set
@@ -3289,7 +3190,7 @@ class Transformer:
         --------
         tempo, speed, pitch
 
-        '''
+        """
         if not is_number(factor) or factor <= 0:
             raise ValueError("factor must be a positive number")
 
@@ -3301,24 +3202,21 @@ class Transformer:
 
         if abs(factor - 1.0) > 0.1:
             logger.warning(
-                "For this stretch factor, "
-                "the tempo effect has better performance."
+                "For this stretch factor, " "the tempo effect has better performance."
             )
 
         if not is_number(window) or window <= 0:
-            raise ValueError(
-                "window must be a positive number."
-            )
+            raise ValueError("window must be a positive number.")
 
-        effect_args = ['stretch', '{:f}'.format(factor), '{:f}'.format(window)]
+        effect_args = ["stretch", "{:f}".format(factor), "{:f}".format(window)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('stretch')
+        self.effects_log.append("stretch")
 
         return self
 
     def swap(self):
-        '''Swap stereo channels. If the input is not stereo, pairs of channels
+        """Swap stereo channels. If the input is not stereo, pairs of channels
         are swapped, and a possible odd last channel passed through.
 
         E.g., for seven channels, the output order will be 2, 1, 4, 3, 6, 5, 7.
@@ -3327,17 +3225,15 @@ class Transformer:
         ----------
         remix
 
-        '''
-        effect_args = ['swap']
+        """
+        effect_args = ["swap"]
         self.effects.extend(effect_args)
-        self.effects_log.append('swap')
+        self.effects_log.append("swap")
 
         return self
 
-    def tempo(self, factor: float,
-              audio_type: Optional[Literal['m', 's', 'l']] = None,
-              quick: bool = False):
-        '''Time stretch audio without changing pitch.
+    def tempo(self, factor, audio_type=None, quick=False):
+        """Time stretch audio without changing pitch.
 
         This effect uses the WSOLA algorithm. The audio is chopped up into
         segments which are then shifted in the time domain and overlapped
@@ -3361,7 +3257,7 @@ class Transformer:
         --------
         stretch, speed, pitch
 
-        '''
+        """
         if not is_number(factor) or factor <= 0:
             raise ValueError("factor must be a positive number")
 
@@ -3373,37 +3269,32 @@ class Transformer:
 
         if abs(factor - 1.0) <= 0.1:
             logger.warning(
-                "For this stretch factor, "
-                "the stretch effect has better performance."
+                "For this stretch factor, " "the stretch effect has better performance."
             )
 
-        if audio_type not in [None, 'm', 's', 'l']:
-            raise ValueError(
-                "audio_type must be one of None, 'm', 's', or 'l'."
-            )
+        if audio_type not in [None, "m", "s", "l"]:
+            raise ValueError("audio_type must be one of None, 'm', 's', or 'l'.")
 
         if not isinstance(quick, bool):
             raise ValueError("quick must be a boolean.")
 
-        effect_args = ['tempo']
+        effect_args = ["tempo"]
 
         if quick:
-            effect_args.append('-q')
+            effect_args.append("-q")
 
         if audio_type is not None:
-            effect_args.append('-{}'.format(audio_type))
+            effect_args.append("-{}".format(audio_type))
 
-        effect_args.append('{:f}'.format(factor))
+        effect_args.append("{:f}".format(factor))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('tempo')
+        self.effects_log.append("tempo")
 
         return self
 
-    def treble(self, gain_db: float,
-               frequency: float = 3000.0,
-               slope: float = 0.5):
-        '''Boost or cut the treble (lower) frequencies of the audio using a
+    def treble(self, gain_db, frequency=3000.0, slope=0.5):
+        """Boost or cut the treble (lower) frequencies of the audio using a
         two-pole shelving filter with a response similar to that of a standard
         hi-fi’s tone-controls. This is also known as shelving equalisation.
 
@@ -3425,7 +3316,7 @@ class Transformer:
         --------
         bass, equalizer
 
-        '''
+        """
         if not is_number(gain_db):
             raise ValueError("gain_db must be a number")
 
@@ -3436,17 +3327,19 @@ class Transformer:
             raise ValueError("width_q must be a positive number.")
 
         effect_args = [
-            'treble', '{:f}'.format(gain_db), '{:f}'.format(frequency),
-            '{:f}s'.format(slope)
+            "treble",
+            "{:f}".format(gain_db),
+            "{:f}".format(frequency),
+            "{:f}s".format(slope),
         ]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('treble')
+        self.effects_log.append("treble")
 
         return self
 
-    def tremolo(self, speed: float = 6.0, depth: float = 40.0):
-        '''Apply a tremolo (low frequency amplitude modulation) effect to the
+    def tremolo(self, speed=6.0, depth=40.0):
+        """Apply a tremolo (low frequency amplitude modulation) effect to the
         audio. The tremolo frequency in Hz is giv en by speed, and the depth
         as a percentage by depth (default 40).
 
@@ -3468,25 +3361,21 @@ class Transformer:
         For a growl-type effect
 
         >>> tfm.tremolo(speed=100.0)
-        '''
+        """
         if not is_number(speed) or speed <= 0:
             raise ValueError("speed must be a positive number.")
         if not is_number(depth) or depth <= 0 or depth > 100:
             raise ValueError("depth must be a positive number less than 100.")
 
-        effect_args = [
-            'tremolo',
-            '{:f}'.format(speed),
-            '{:f}'.format(depth)
-        ]
+        effect_args = ["tremolo", "{:f}".format(speed), "{:f}".format(depth)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('tremolo')
+        self.effects_log.append("tremolo")
 
         return self
 
-    def trim(self, start_time: float, end_time: Optional[float] = None):
-        '''Excerpt a clip from an audio file, given the start timestamp and end timestamp of the clip within the file, expressed in seconds. If the end timestamp is set to `None` or left unspecified, it defaults to the duration of the audio file.
+    def trim(self, start_time, end_time=None):
+        """Excerpt a clip from an audio file, given the start timestamp and end timestamp of the clip within the file, expressed in seconds. If the end timestamp is set to `None` or left unspecified, it defaults to the duration of the audio file.
 
         Parameters
         ----------
@@ -3495,14 +3384,11 @@ class Transformer:
         end_time : float or None, default=None
             End time of the clip (seconds)
 
-        '''
+        """
         if not is_number(start_time) or start_time < 0:
             raise ValueError("start_time must be a positive number.")
 
-        effect_args = [
-            'trim',
-            '{:f}'.format(start_time)
-        ]
+        effect_args = ["trim", "{:f}".format(start_time)]
 
         if end_time is not None:
             if not is_number(end_time) or end_time < 0:
@@ -3510,15 +3396,15 @@ class Transformer:
             if start_time >= end_time:
                 raise ValueError("start_time must be smaller than end_time.")
 
-            effect_args.append('{:f}'.format(end_time - start_time))
+            effect_args.append("{:f}".format(end_time - start_time))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('trim')
+        self.effects_log.append("trim")
 
         return self
 
-    def upsample(self, factor: int = 2):
-        '''Upsample the signal by an integer factor: zero-value samples are
+    def upsample(self, factor=2):
+        """Upsample the signal by an integer factor: zero-value samples are
         inserted between each pair of input samples. As a result, the original
         spectrum is replicated into the new frequency space (imaging) and
         attenuated. The upsample effect is typically used in combination with
@@ -3533,26 +3419,28 @@ class Transformer:
         --------
         rate, downsample
 
-        '''
+        """
         if not isinstance(factor, int) or factor < 1:
-            raise ValueError('factor must be a positive integer.')
+            raise ValueError("factor must be a positive integer.")
 
-        effect_args = ['upsample', '{}'.format(factor)]
+        effect_args = ["upsample", "{}".format(factor)]
 
         self.effects.extend(effect_args)
-        self.effects_log.append('upsample')
+        self.effects_log.append("upsample")
 
         return self
 
-    def vad(self,
-            location: Literal[1, -1] = 1,
-            normalize: bool = True,
-            activity_threshold: float = 7.0,
-            min_activity_duration: float = 0.25,
-            initial_search_buffer: float = 1.0,
-            max_gap: float = 0.25,
-            initial_pad: float = 0.0):
-        '''Voice Activity Detector. Attempts to trim silence and quiet
+    def vad(
+        self,
+        location=1,
+        normalize=True,
+        activity_threshold=7.0,
+        min_activity_duration=0.25,
+        initial_search_buffer=1.0,
+        max_gap=0.25,
+        initial_pad=0.0,
+    ):
+        """Voice Activity Detector. Attempts to trim silence and quiet
         background sounds from the ends of recordings of speech. The algorithm
         currently uses a simple cepstral power measurement to detect voice, so
         may be fooled by other things, especially music.
@@ -3600,7 +3488,7 @@ class Transformer:
 
         >>> tfm.vad(location=-1, initial_pad=0.2)
 
-        '''
+        """
         if location not in [-1, 1]:
             raise ValueError("location must be -1 or 1.")
         if not isinstance(normalize, bool):
@@ -3619,32 +3507,37 @@ class Transformer:
         effect_args = []
 
         if normalize:
-            effect_args.append('norm')
+            effect_args.append("norm")
 
         if location == -1:
-            effect_args.append('reverse')
+            effect_args.append("reverse")
 
-        effect_args.extend([
-            'vad',
-            '-t', '{:f}'.format(activity_threshold),
-            '-T', '{:f}'.format(min_activity_duration),
-            '-s', '{:f}'.format(initial_search_buffer),
-            '-g', '{:f}'.format(max_gap),
-            '-p', '{:f}'.format(initial_pad)
-        ])
+        effect_args.extend(
+            [
+                "vad",
+                "-t",
+                "{:f}".format(activity_threshold),
+                "-T",
+                "{:f}".format(min_activity_duration),
+                "-s",
+                "{:f}".format(initial_search_buffer),
+                "-g",
+                "{:f}".format(max_gap),
+                "-p",
+                "{:f}".format(initial_pad),
+            ]
+        )
 
         if location == -1:
-            effect_args.append('reverse')
+            effect_args.append("reverse")
 
         self.effects.extend(effect_args)
-        self.effects_log.append('vad')
+        self.effects_log.append("vad")
 
         return self
 
-    def vol(self, gain: float,
-            gain_type: Literal['amplitude', 'power', 'db'] = 'amplitude',
-            limiter_gain: Optional[float] = None):
-        '''Apply an amplification or an attenuation to the audio signal.
+    def vol(self, gain, gain_type="amplitude", limiter_gain=None):
+        """Apply an amplification or an attenuation to the audio signal.
 
         Parameters
         ----------
@@ -3667,40 +3560,37 @@ class Transformer:
         --------
         gain, compand
 
-        '''
+        """
         if not is_number(gain):
-            raise ValueError('gain must be a number.')
+            raise ValueError("gain must be a number.")
         if limiter_gain is not None:
-            if (not is_number(limiter_gain) or
-                    limiter_gain <= 0 or limiter_gain >= 1):
-                raise ValueError(
-                    'limiter gain must be a positive number less than 1'
-                )
-        if gain_type in ['amplitude', 'power'] and gain < 0:
+            if not is_number(limiter_gain) or limiter_gain <= 0 or limiter_gain >= 1:
+                raise ValueError("limiter gain must be a positive number less than 1")
+        if gain_type in ["amplitude", "power"] and gain < 0:
             raise ValueError(
                 "If gain_type = amplitude or power, gain must be positive."
             )
 
-        effect_args = ['vol']
+        effect_args = ["vol"]
 
-        effect_args.append('{:f}'.format(gain))
+        effect_args.append("{:f}".format(gain))
 
-        if gain_type == 'amplitude':
-            effect_args.append('amplitude')
-        elif gain_type == 'power':
-            effect_args.append('power')
-        elif gain_type == 'db':
-            effect_args.append('dB')
+        if gain_type == "amplitude":
+            effect_args.append("amplitude")
+        elif gain_type == "power":
+            effect_args.append("power")
+        elif gain_type == "db":
+            effect_args.append("dB")
         else:
-            raise ValueError('gain_type must be one of amplitude power or db')
+            raise ValueError("gain_type must be one of amplitude power or db")
 
         if limiter_gain is not None:
-            if gain_type in ['amplitude', 'power'] and gain > 1:
-                effect_args.append('{:f}'.format(limiter_gain))
-            elif gain_type == 'db' and gain > 0:
-                effect_args.append('{:f}'.format(limiter_gain))
+            if gain_type in ["amplitude", "power"] and gain > 1:
+                effect_args.append("{:f}".format(limiter_gain))
+            elif gain_type == "db" and gain > 0:
+                effect_args.append("{:f}".format(limiter_gain))
 
         self.effects.extend(effect_args)
-        self.effects_log.append('vol')
+        self.effects_log.append("vol")
 
         return self
