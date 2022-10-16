@@ -1481,7 +1481,7 @@ class Transformer(object):
         if samplerate is not None:
             if not is_number(samplerate) or samplerate <= 0:
                 raise ValueError("samplerate must be a positive number.")
-            self.rate = samplerate
+            self.rate(samplerate)
         if bitrate is not None:
             if not isinstance(bitrate, float) or bitrate <= 0:
                 raise ValueError("bitrate must be a positive float.")
