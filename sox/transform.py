@@ -340,7 +340,7 @@ class Transformer(object):
             )
 
         if not isinstance(bitrate, float) and bitrate is not None:
-            raise ValueError("bitrate must be an float or None")
+            raise ValueError("bitrate must be a positive float or None")
 
         if comments is not None and not isinstance(comments, str):
             raise ValueError("comments must be a string or None")
